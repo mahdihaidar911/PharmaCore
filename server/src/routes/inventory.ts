@@ -1,0 +1,179 @@
+import { Router } from "express";
+import { z } from "zod";
+import { db } from "../db/index.js";
+import { requireAuth } from "../middleware/auth.js";
+import { logAudit } from "../services/audit.js";
+import { parsePageQuery, paginatedResponse } from "../services/pagination.js";
+
+const router = Router();
+
+const receiveSchema = z.object({
+  product_id: z.number().int().positive().optional(),
+  product: z
+    .object({
+      barcode: z.string().max(64).nullable().optional(),
+      name: z.string().min(1).max(300),
+      category: z.string().max(100).nullable().optional(),
+      sale_price_usd: z.number().nonnegative(),
+    })
+    .optional(),
+  qty: z.number().int().positive(),
+  expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  cost_usd: z.number().nonnegative().nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
+
+router.post("/receive", requireAuth, (req, res) => {
+  const parsed = receiveSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const { product_id, product, qty, expiry_date, cost_usd = null, notes = null } = parsed.data;
+
+  if (!product_id && !product) {
+    return res.status(400).json({ error: "Provide product_id or product details for a new product" });
+  }
+
+  const userId = req.user!.userId;
+
+  const receive = db.transaction(() => {
+    let resolvedProductId = product_id;
+
+    if (!resolvedProductId && product) {
+      const result = db
+        .prepare(`
+          INSERT INTO products (barcode, name, category, sale_price_usd, is_active)
+          VALUES (?, ?, ?, ?, 1)
+        `)
+        .run(product.barcode ?? null, product.name, product.category ?? null, product.sale_price_usd);
+      resolvedProductId = Number(result.lastInsertRowid);
+    }
+
+    if (!resolvedProductId) {
+      throw new Error("Product could not be resolved");
+    }
+
+    const existingProduct = db.prepare("SELECT id FROM products WHERE id = ?").get(resolvedProductId);
+    if (!existingProduct) {
+      throw new Error("Product not found");
+    }
+
+    const batchResult = db
+      .prepare(`
+        INSERT INTO stock_batches (product_id, qty, expiry_date, cost_usd, notes)
+        VALUES (?, ?, ?, ?, ?)
+      `)
+      .run(resolvedProductId, qty, expiry_date, cost_usd, notes);
+
+    const batchId = Number(batchResult.lastInsertRowid);
+
+    db.prepare(`
+      INSERT INTO stock_movements (product_id, batch_id, movement_type, qty_change, reference_id, user_id, notes)
+      VALUES (?, ?, 'receive', ?, ?, ?, ?)
+    `).run(resolvedProductId, batchId, qty, batchId, userId, notes);
+
+    return { product_id: resolvedProductId, batch_id: batchId };
+  });
+
+  try {
+    const result = receive();
+    logAudit({
+      userId,
+      action: "stock.received",
+      entityType: "batch",
+      entityId: result.batch_id,
+      details: { product_id: result.product_id, qty },
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "Product not found") {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message.includes("UNIQUE constraint failed: products.barcode")) {
+        return res.status(409).json({ error: "A product with this barcode already exists" });
+      }
+    }
+    throw error;
+  }
+});
+
+router.get("/batches", requireAuth, (req, res) => {
+  const productId = req.query.product_id ? Number(req.query.product_id) : null;
+  const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
+  const { page, pageSize, offset } = parsePageQuery(req.query as Record<string, unknown>);
+
+  if (productId) {
+    const batches = db
+      .prepare(`
+        SELECT sb.*, p.name as product_name, p.barcode, p.sale_price_usd
+        FROM stock_batches sb
+        JOIN products p ON p.id = sb.product_id
+        WHERE sb.product_id = ? AND sb.qty > 0
+        ORDER BY sb.expiry_date ASC
+      `)
+      .all(productId);
+    return res.json(
+      paginatedResponse(batches, batches.length, 1, batches.length || 1),
+    );
+  }
+
+  const searchClause = search
+    ? ` AND (
+        LOWER(p.name) LIKE '%' || ? || '%'
+        OR LOWER(IFNULL(p.barcode, '')) LIKE '%' || ? || '%'
+        OR LOWER(IFNULL(p.moph_code, '')) LIKE '%' || ? || '%'
+      )`
+    : "";
+  const searchParams = search ? [search, search, search] : [];
+
+  const summary = db
+    .prepare(
+      `
+      SELECT
+        COUNT(*) AS batch_count,
+        COALESCE(SUM(sb.qty), 0) AS total_qty,
+        COUNT(DISTINCT sb.product_id) AS product_count
+      FROM stock_batches sb
+      JOIN products p ON p.id = sb.product_id
+      WHERE sb.qty > 0${searchClause}
+    `,
+    )
+    .get(...searchParams) as { batch_count: number; total_qty: number; product_count: number };
+
+  const { total } = db
+    .prepare(
+      `
+      SELECT COUNT(*) AS total
+      FROM stock_batches sb
+      JOIN products p ON p.id = sb.product_id
+      WHERE sb.qty > 0${searchClause}
+    `,
+    )
+    .get(...searchParams) as { total: number };
+
+  const batches = db
+    .prepare(
+      `
+      SELECT sb.*, p.name as product_name, p.barcode, p.sale_price_usd, p.moph_code
+      FROM stock_batches sb
+      JOIN products p ON p.id = sb.product_id
+      WHERE sb.qty > 0${searchClause}
+      ORDER BY sb.expiry_date ASC
+      LIMIT ? OFFSET ?
+    `,
+    )
+    .all(...searchParams, pageSize, offset);
+
+  return res.json({
+    ...paginatedResponse(batches, total, page, pageSize),
+    summary: {
+      batch_count: summary.batch_count,
+      total_qty: summary.total_qty,
+      product_count: summary.product_count,
+    },
+  });
+});
+
+export default router;

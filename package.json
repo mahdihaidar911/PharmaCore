@@ -1,0 +1,22 @@
+{
+  "name": "pharmacore",
+  "version": "0.1.0",
+  "private": true,
+  "description": "On-premise pharmacy inventory and POS for independent pharmacies in Lebanon",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node scripts/kill-port.mjs 4000 && npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=client && npm run build --workspace=server",
+    "start": "npm run start --workspace=server",
+    "test": "node scripts/full-test.mjs",
+    "fix:native": "node scripts/kill-port.mjs 4000 && npm rebuild better-sqlite3"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
