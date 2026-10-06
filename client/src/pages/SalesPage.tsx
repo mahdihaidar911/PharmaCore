@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageShell, Panel, ScrollBox } from "../components/PageShell";
 import { printReceipt } from "../components/Receipt";
-import { api, formatLbp, formatUsd, type SaleDetail, type SaleSummary } from "../lib/api";
+import { api, formatLbp, formatUsd, localToday, parseServerDate, type SaleDetail, type SaleSummary } from "../lib/api";
 
 export default function SalesPage() {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(localToday());
   const [sales, setSales] = useState<SaleSummary[]>([]);
   const [selected, setSelected] = useState<SaleDetail | null>(null);
   const [error, setError] = useState("");
@@ -57,7 +57,7 @@ export default function SalesPage() {
               <div>
                 <p className="font-medium">Invoice #{sale.id}</p>
                 <p className="text-xs text-slate-500">
-                  {new Date(sale.created_at).toLocaleString()} · {sale.cashier_name ?? "—"}
+                  {parseServerDate(sale.created_at).toLocaleString()} · {sale.cashier_name ?? "—"}
                 </p>
               </div>
               <div className="text-right">
@@ -74,7 +74,7 @@ export default function SalesPage() {
           {selected ? (
             <ScrollBox className="min-h-0 flex-1">
               <h3 className="text-lg font-semibold">Invoice #{selected.sale.id}</h3>
-              <p className="mt-1 text-sm text-slate-500">{new Date(selected.sale.created_at).toLocaleString()}</p>
+              <p className="mt-1 text-sm text-slate-500">{parseServerDate(selected.sale.created_at).toLocaleString()}</p>
               <p className="mt-3 font-semibold">
                 {formatUsd(selected.sale.total_usd)} · {formatLbp(selected.sale.total_lbp)}
               </p>

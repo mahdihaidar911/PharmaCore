@@ -1,6 +1,6 @@
 import { lbpAmountInArabicWords } from "./arabicAmount";
 import { lebanonPharmacyLogoSvg } from "./lebanonPharmacyLogo";
-import { formatLbp, formatUsd, usdToLbp, type PharmacySettings, type SaleDetail } from "./api";
+import { formatLbp, formatUsd, parseServerDate, usdToLbp, type PharmacySettings, type SaleDetail } from "./api";
 
 function esc(text: string) {
   return text
@@ -15,7 +15,7 @@ export function formatReceiptLbp(amount: number) {
 }
 
 function formatReceiptDate(iso: string) {
-  const d = new Date(iso);
+  const d = parseServerDate(iso);
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();

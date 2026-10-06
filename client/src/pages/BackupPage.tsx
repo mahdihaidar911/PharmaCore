@@ -1,15 +1,26 @@
 import { useEffect, useState } from "react";
 import { PageShell, Panel, ScrollBox } from "../components/PageShell";
+import { Alert, ConfirmDialog, EmptyState } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
 import { api, type BackupFile } from "../lib/api";
 
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function BackupPage() {
+  const { can } = useAuth();
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
-    const list = await api.listBackups();
-    setBackups(list);
+    setBackups(await api.listBackups());
   }
 
   useEffect(() => {
@@ -19,31 +30,32 @@ export default function BackupPage() {
   async function createBackup() {
     setError("");
     setMessage("");
+    setCreating(true);
     try {
       const result = await api.createBackup();
       setMessage(`Backup created: ${result.filename}`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Backup failed");
+    } finally {
+      setCreating(false);
     }
   }
 
-  async function restore(filename: string) {
-    if (!confirm(`Restore ${filename}? The server must be restarted after restore.`)) return;
+  async function restore() {
+    if (!restoring) return;
+    setBusy(true);
     setError("");
     setMessage("");
     try {
-      const result = await api.restoreBackup(filename);
+      const result = await api.restoreBackup(restoring);
       setMessage(result.message);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Restore failed");
+    } finally {
+      setBusy(false);
+      setRestoring(null);
     }
-  }
-
-  function formatSize(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   return (
@@ -51,48 +63,60 @@ export default function BackupPage() {
       title="Backup & restore"
       description={
         <>
-          Backups are stored in <code className="text-xs">data/backups/</code>. Restore requires a server restart.
+          Backups are full copies of the database in <code className="text-xs">server/data/backups/</code>. Copy them to a USB drive or another
+          computer regularly — a backup on the same disk does not protect against disk failure.
         </>
       }
+      actions={
+        <button type="button" onClick={createBackup} disabled={creating} className="btn btn-primary">
+          {creating ? "Creating…" : "Create backup now"}
+        </button>
+      }
     >
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-4 overflow-hidden">
-      <button
-        type="button"
-        onClick={createBackup}
-        className="shrink-0 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white"
-      >
-        Create backup now
-      </button>
+      <div className="flex h-full min-h-0 w-full max-w-3xl flex-col gap-3 overflow-hidden">
+        {message ? <Alert tone="success">{message}</Alert> : null}
+        {error ? <Alert tone="error">{error}</Alert> : null}
 
-      {message ? <p className="text-sm text-teal-700">{message}</p> : null}
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-      <Panel padding={false} className="min-h-0 flex-1">
-        <ScrollBox className="h-full min-h-0">
-        {backups.map((backup) => (
-          <div
-            key={backup.filename}
-            className="flex items-center justify-between border-b border-slate-100 px-4 py-3 last:border-0"
-          >
-            <div>
-              <p className="font-medium text-slate-900">{backup.filename}</p>
-              <p className="text-xs text-slate-500">
-                {new Date(backup.created_at).toLocaleString()} · {formatSize(backup.size_bytes)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => restore(backup.filename)}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              Restore
-            </button>
-          </div>
-        ))}
-        {backups.length === 0 ? <p className="px-4 py-8 text-center text-sm text-slate-500">No backups yet.</p> : null}
-        </ScrollBox>
-      </Panel>
+        <Panel padding={false} className="min-h-0 flex-1">
+          <ScrollBox className="h-full min-h-0">
+            {backups.map((backup) => (
+              <div key={backup.filename} className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-0">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-900">{backup.filename}</p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(backup.created_at).toLocaleString()} · {formatSize(backup.size_bytes)}
+                  </p>
+                </div>
+                {can("backup.restore") ? (
+                  <button type="button" onClick={() => setRestoring(backup.filename)} className="btn btn-secondary btn-sm">
+                    Restore
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            {backups.length === 0 ? <EmptyState title="No backups yet" description="Create one now, then copy it somewhere safe." /> : null}
+          </ScrollBox>
+        </Panel>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(restoring)}
+        title="Restore this backup?"
+        destructive
+        busy={busy}
+        confirmLabel="Restore and replace data"
+        message={
+          <div className="space-y-2">
+            <p>
+              All current data will be replaced with <strong>{restoring}</strong>. Sales and stock changes made after that backup will no longer
+              appear.
+            </p>
+            <p>A safety copy of the current data is saved automatically first. The server must be restarted after the restore.</p>
+          </div>
+        }
+        onConfirm={restore}
+        onCancel={() => setRestoring(null)}
+      />
     </PageShell>
   );
 }

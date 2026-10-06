@@ -15,7 +15,7 @@ router.get("/", requireAuth, requirePermission("sales.view"), (req, res) => {
           SELECT s.id, s.total_usd, s.total_lbp, s.payment_method, s.created_at, u.username as cashier_name
           FROM sales s
           LEFT JOIN users u ON u.id = s.user_id
-          WHERE date(s.created_at) = date(?)
+          WHERE date(s.created_at, 'localtime') = ?
           ORDER BY s.created_at DESC
           LIMIT ?
         `)

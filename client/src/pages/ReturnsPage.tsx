@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageShell, ScrollBox } from "../components/PageShell";
-import { api, formatLbp, formatUsd, usdToLbp, type SaleDetail } from "../lib/api";
+import { api, formatLbp, formatUsd, parseServerDate, usdToLbp, type SaleDetail } from "../lib/api";
 
 export default function ReturnsPage() {
   const [searchParams] = useSearchParams();
@@ -126,7 +126,7 @@ export default function ReturnsPage() {
       {sale ? (
         <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-5">
           <h3 className="font-semibold">Invoice #{sale.sale.id}</h3>
-          <p className="text-sm text-slate-500">{new Date(sale.sale.created_at).toLocaleString()}</p>
+          <p className="text-sm text-slate-500">{parseServerDate(sale.sale.created_at).toLocaleString()}</p>
 
           <div className="mt-4 space-y-3">
             {sale.lines.map((line) => {

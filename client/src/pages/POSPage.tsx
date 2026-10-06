@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState, type KeyboardEvent
 import { LinkBarcodePanel } from "../components/LinkBarcodePanel";
 import { PageShell, ScrollBox } from "../components/PageShell";
 import { printReceipt } from "../components/Receipt";
+import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { isExactBarcodeMatch, looksLikeBarcodeScan, normalizeScan } from "../lib/barcode";
 import {
@@ -21,6 +22,7 @@ export default function POSPage() {
   const scanIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingScan = useRef(false);
   const { settings } = useSettings();
+  const { can } = useAuth();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -96,7 +98,8 @@ export default function POSPage() {
 
   const rate = settings?.exchange_rate ?? 89500;
   const subtotalUsd = cart.reduce((sum, item) => sum + item.unit_price_usd * item.qty, 0);
-  const discount = Number(discountUsd) || 0;
+  const canDiscount = can("pos.discount");
+  const discount = canDiscount ? Number(discountUsd) || 0 : 0;
   const totalUsd = Math.max(0, subtotalUsd - discount);
   const totalLbp = usdToLbp(totalUsd, rate);
   const paidUsdNum = Number(paidUsd) || 0;
@@ -475,25 +478,31 @@ export default function POSPage() {
               <span className="text-slate-500">Subtotal</span>
               <span>{formatUsd(subtotalUsd)}</span>
             </div>
-            <label className="block">
-              <span className="text-slate-500">Discount (USD)</span>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={discountUsd}
-                onChange={(e) => {
-                  setCheckoutError("");
-                  setDiscountUsd(e.target.value);
-                }}
-              />
-            </label>
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold">
-              <span>Total</span>
-              <span>{formatUsd(totalUsd)}</span>
+            {canDiscount ? (
+              <label className="block">
+                <span className="text-slate-500">Discount (USD)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={subtotalUsd}
+                  step="0.01"
+                  className={`input mt-1 ${discount > subtotalUsd ? "input-invalid" : ""}`}
+                  value={discountUsd}
+                  onChange={(e) => {
+                    setCheckoutError("");
+                    setDiscountUsd(e.target.value);
+                  }}
+                />
+                {discount > subtotalUsd ? <span className="mt-1 block text-xs text-red-600">Discount cannot exceed the subtotal.</span> : null}
+              </label>
+            ) : null}
+            <div className="mt-2 rounded-xl bg-slate-900 px-4 py-3 text-white">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-slate-300">Total</span>
+                <span className="text-3xl font-semibold tabular-nums">{formatUsd(totalUsd)}</span>
+              </div>
+              <p className="text-right text-sm text-slate-300 tabular-nums">{formatLbp(totalLbp)}</p>
             </div>
-            <p className="text-right text-slate-500">{formatLbp(totalLbp)}</p>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -590,8 +599,8 @@ export default function POSPage() {
 
           <button
             type="submit"
-            disabled={checkingOut || cart.length === 0 || insufficient}
-            className="mt-5 w-full rounded-lg bg-teal-700 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+            disabled={checkingOut || cart.length === 0 || insufficient || discount > subtotalUsd}
+            className="btn btn-primary btn-lg mt-5 w-full"
           >
             {checkingOut ? "Processing..." : "Complete sale & print"}
           </button>

@@ -80,9 +80,175 @@ export type BatchListResult = Paginated<StockBatch> & {
   };
 };
 
+export type Role = "owner" | "pharmacist" | "cashier";
+
+export type Permission =
+  | "pos.sell"
+  | "pos.discount"
+  | "pos.price_override"
+  | "sales.view"
+  | "returns.create"
+  | "products.view"
+  | "products.manage"
+  | "products.link_barcode"
+  | "inventory.view"
+  | "inventory.receive"
+  | "inventory.adjust"
+  | "reports.inventory"
+  | "reports.sales"
+  | "reports.profit"
+  | "settings.exchange_rate"
+  | "settings.manage"
+  | "users.manage"
+  | "backup.create"
+  | "backup.restore"
+  | "catalog.import"
+  | "ai.use"
+  | "ai.logs";
+
 export type User = {
   id: number;
   username: string;
+  full_name: string;
+  role: Role;
+  permissions: Permission[];
+};
+
+export type ManagedUser = {
+  id: number;
+  username: string;
+  full_name: string;
+  role: Role;
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+};
+
+export type AdjustmentReason = "expired" | "damaged" | "lost" | "count_correction" | "other";
+
+export type StockMovement = {
+  id: number;
+  created_at: string;
+  movement_type: "receive" | "sale" | "return" | "adjustment";
+  qty_change: number;
+  reason: string | null;
+  notes: string | null;
+  reference_id: number | null;
+  batch_id: number | null;
+  product_id: number;
+  product_name: string;
+  username: string | null;
+};
+
+export type MovementsReport = {
+  period: { from: string; to: string };
+  totals_by_type: { movement_type: string; movement_count: number; net_units: number }[];
+  movements: StockMovement[];
+};
+
+export type SalesSummary = {
+  period: { from: string; to: string; days: number };
+  sale_count: number;
+  net_revenue_usd: number;
+  net_revenue_lbp: number;
+  discounts_usd: number;
+  average_sale_usd: number;
+  units_sold: number;
+  distinct_products_sold: number;
+  return_count: number;
+  refunds_usd: number;
+  revenue_after_refunds_usd: number;
+  by_payment_method: { payment_method: string; sale_count: number; net_revenue_usd: number }[];
+  by_cashier: { cashier: string; sale_count: number; net_revenue_usd: number }[];
+};
+
+export type TopProductsReport = {
+  products: {
+    product_id: number;
+    name: string;
+    units_sold: number;
+    units_returned: number;
+    net_revenue_usd: number;
+    current_stock: number;
+  }[];
+};
+
+export type DailyRevenueReport = { days: { date: string; sale_count: number; net_revenue_usd: number }[] };
+
+export type ProfitReport = {
+  net_revenue_usd: number;
+  cost_of_goods_usd: number;
+  gross_profit_usd: number;
+  gross_margin_percent: number | null;
+  cost_coverage_percent: number | null;
+  note: string;
+};
+
+export type QueryColumn = { key: string; label: string; type: "text" | "number" | "usd" | "date" | "datetime" };
+
+export type StructuredQueryResult = {
+  entity: "batches" | "products" | "sales";
+  applied_filters: string[];
+  columns: QueryColumn[];
+  rows: Record<string, unknown>[];
+  total: number;
+  truncated: boolean;
+};
+
+export type AiToolCall = {
+  name: string;
+  arguments: Record<string, unknown>;
+  status: "ok" | "invalid_arguments" | "permission_denied" | "unknown_tool" | "error";
+  error?: string;
+  duration_ms: number;
+};
+
+export type AiChatReply = {
+  answer: string;
+  tool_calls: AiToolCall[];
+  grounded: boolean;
+  permission_denied: boolean;
+  model: string;
+};
+
+export type AiStatus = {
+  configured: boolean;
+  model: string | null;
+  host: string | null;
+  tools: { name: string; description: string; allowed: boolean }[];
+};
+
+export type BusinessHighlight = {
+  severity: "critical" | "warning" | "info" | "positive";
+  title: string;
+  detail: string;
+};
+
+export type BusinessAnalysis = {
+  period: { from: string; to: string };
+  highlights: BusinessHighlight[];
+  narrative: string | null;
+  ai_used: boolean;
+  ai_configured: boolean;
+  ai_error: string | null;
+  model: string | null;
+  snapshot: Record<string, unknown>;
+};
+
+export type AiSearchResult = StructuredQueryResult & { interpretation: string; model: string };
+
+export type AiLogEntry = {
+  id: number;
+  kind: "chat" | "analyze" | "search";
+  prompt: string;
+  response: string | null;
+  tool_calls: AiToolCall[];
+  model: string | null;
+  status: string;
+  error: string | null;
+  latency_ms: number | null;
+  created_at: string;
+  username: string | null;
 };
 
 export type SaleSummary = {
@@ -138,6 +304,7 @@ export type CartItem = {
   sale_price_usd: number;
 };
 
+/** Sales fields are null when the user's role cannot see revenue. */
 export type DashboardReport = {
   date: string;
   salesToday: {
@@ -146,12 +313,16 @@ export type DashboardReport = {
     total_lbp: number;
     paid_usd: number;
     paid_lbp: number;
-  };
-  salesByCashier: { username: string | null; sale_count: number; total_usd: number }[];
+  } | null;
+  salesByCashier: { username: string | null; sale_count: number; total_usd: number }[] | null;
+  topProducts: { name: string; qty_sold: number; revenue_usd: number }[] | null;
   lowStock: { id: number; name: string; barcode: string | null; min_stock: number; total_qty: number }[];
+  lowStockTotal: number;
+  outOfStockTotal: number;
   nearExpiry: { id: number; qty: number; expiry_date: string; product_name: string; barcode: string | null }[];
+  nearExpiryTotal: number;
   expired: { id: number; qty: number; expiry_date: string; product_name: string; barcode: string | null }[];
-  topProducts: { name: string; qty_sold: number; revenue_usd: number }[];
+  expiredTotal: number;
 };
 
 export type BackupFile = {
@@ -211,6 +382,17 @@ export type MophApplyResult = {
 };
 
 const TOKEN_KEY = "pharmacore_token";
+export const SESSION_EXPIRED_EVENT = "pharmacore:session-expired";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly data: Record<string, unknown>,
+  ) {
+    super(message);
+  }
+}
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -243,6 +425,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const data = await response.json().catch(() => ({}));
 
+  if (response.status === 401 && token && !path.startsWith("/api/auth/login")) {
+    clearToken();
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+
   if (!response.ok) {
     let message = "Request failed";
     if (typeof data.error === "string") {
@@ -257,10 +444,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       message =
         "MoPH API not found — the server is outdated. Close all terminals, run npm run dev from PharmaCore, then refresh.";
     }
-    throw new Error(message);
+    throw new ApiError(message, response.status, data);
   }
 
   return data as T;
+}
+
+const post = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
+
+function withQuery(path: string, params: Record<string, string | number | boolean | undefined | null>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
@@ -482,7 +681,70 @@ export const api = {
       body: JSON.stringify({ checkId, applyRetailPrices }),
     });
   },
+
+  changePassword(current_password: string, new_password: string) {
+    return post<{ ok: true }>("/api/auth/change-password", { current_password, new_password });
+  },
+  listUsers() {
+    return request<ManagedUser[]>("/api/users");
+  },
+  createUser(payload: { username: string; full_name: string; role: Role; password: string }) {
+    return post<ManagedUser>("/api/users", payload);
+  },
+  updateUser(id: number, payload: Partial<Pick<ManagedUser, "full_name" | "role" | "is_active">>) {
+    return request<ManagedUser>(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+  },
+  resetUserPassword(id: number, password: string) {
+    return post<{ ok: true }>(`/api/users/${id}/reset-password`, { password });
+  },
+
+  adjustStock(payload: { batch_id: number; qty_change: number; reason: AdjustmentReason; notes?: string | null }) {
+    return post<{ batch_id: number; qty: number }>("/api/inventory/adjust", payload);
+  },
+  getMovements(params: { from?: string; to?: string; type?: string; product_id?: number; limit?: number }) {
+    return request<MovementsReport>(withQuery("/api/reports/movements", params));
+  },
+  getSalesSummary(from: string, to: string) {
+    return request<SalesSummary>(withQuery("/api/reports/sales-summary", { from, to }));
+  },
+  getTopProducts(from: string, to: string, sort: "units" | "revenue" = "units", limit = 15) {
+    return request<TopProductsReport>(withQuery("/api/reports/top-products", { from, to, sort, limit }));
+  },
+  getDailyRevenue(from: string, to: string) {
+    return request<DailyRevenueReport>(withQuery("/api/reports/daily-revenue", { from, to }));
+  },
+  getProfit(from: string, to: string) {
+    return request<ProfitReport>(withQuery("/api/reports/profit", { from, to }));
+  },
+
+  aiStatus() {
+    return request<AiStatus>("/api/ai/status");
+  },
+  aiChat(messages: { role: "user" | "assistant"; content: string }[]) {
+    return post<AiChatReply>("/api/ai/chat", { messages });
+  },
+  aiAnalyze(from?: string, to?: string) {
+    return post<BusinessAnalysis>("/api/ai/analyze", { from, to });
+  },
+  aiSearch(query: string) {
+    return post<AiSearchResult>("/api/ai/search", { query });
+  },
+  aiLogs(limit = 50) {
+    return request<AiLogEntry[]>(`/api/ai/logs?limit=${limit}`);
+  },
 };
+
+/** Today's date on this computer (not UTC), as YYYY-MM-DD. */
+export function localToday(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** SQLite stores UTC timestamps without a zone marker; parse them as UTC for local display. */
+export function parseServerDate(value: string) {
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`);
+}
 
 export function formatUsd(amount: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);

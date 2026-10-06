@@ -155,12 +155,15 @@ router.put("/:id", requireAuth, requirePermission("products.manage"), (req, res)
     return res.status(400).json({ error: parsed.error.flatten() });
   }
 
-  const existing = db.prepare("SELECT id FROM products WHERE id = ?").get(Number(req.params.id));
+  const existing = db.prepare("SELECT id, is_active FROM products WHERE id = ?").get(Number(req.params.id)) as
+    | { id: number; is_active: number }
+    | undefined;
   if (!existing) {
     return res.status(404).json({ error: "Product not found" });
   }
 
-  const { barcode = null, name, category = null, sale_price_usd, is_active = true } = parsed.data;
+  const { barcode = null, name, category = null, sale_price_usd } = parsed.data;
+  const is_active = parsed.data.is_active ?? Boolean(existing.is_active);
 
   try {
     db.prepare(`

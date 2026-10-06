@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Pagination } from "../components/Pagination";
 import { PageShell, Panel, ScrollBox } from "../components/PageShell";
-import { api, formatUsd, type StockBatch } from "../lib/api";
+import { AdjustStockModal } from "../components/AdjustStockModal";
+import { Alert } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
+import { api, formatUsd, parseServerDate, type StockBatch } from "../lib/api";
 
 const PAGE_SIZE = 50;
 
@@ -16,6 +19,9 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [adjusting, setAdjusting] = useState<StockBatch | null>(null);
+  const canAdjust = useAuth().can("inventory.adjust");
 
   const loadBatches = useCallback(
     async (query = search, pageNum = page) => {
@@ -52,13 +58,14 @@ export default function InventoryPage() {
         <button
           type="button"
           onClick={() => loadBatches()}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="btn btn-secondary"
         >
           Refresh
         </button>
       }
     >
-      {error ? <p className="shrink-0 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+      {error ? <Alert tone="error">{error}</Alert> : null}
+      {notice ? <Alert tone="success">{notice}</Alert> : null}
 
       <Panel className="flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -99,6 +106,7 @@ export default function InventoryPage() {
                   <th className="px-4 py-3 font-medium">Expiry</th>
                   <th className="px-4 py-3 font-medium">Sale price</th>
                   <th className="px-4 py-3 font-medium">Received</th>
+                  {canAdjust ? <th className="px-4 py-3 font-medium" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -124,7 +132,14 @@ export default function InventoryPage() {
                         <span className="ml-2 text-xs">({daysToExpiry}d)</span>
                       </td>
                       <td className="px-4 py-3">{formatUsd(batch.sale_price_usd)}</td>
-                      <td className="px-4 py-3 text-slate-600">{batch.received_at}</td>
+                      <td className="px-4 py-3 text-slate-600">{parseServerDate(batch.received_at).toLocaleDateString()}</td>
+                      {canAdjust ? (
+                        <td className="px-4 py-2 text-right">
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdjusting(batch)}>
+                            Adjust
+                          </button>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}
@@ -147,6 +162,18 @@ export default function InventoryPage() {
           </div>
         </Panel>
       </Panel>
+
+      {adjusting ? (
+        <AdjustStockModal
+          batch={adjusting}
+          onClose={() => setAdjusting(null)}
+          onDone={(message) => {
+            setAdjusting(null);
+            setNotice(message);
+            void loadBatches();
+          }}
+        />
+      ) : null}
     </PageShell>
   );
 }

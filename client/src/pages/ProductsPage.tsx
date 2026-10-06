@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Pagination } from "../components/Pagination";
 import { PageShell, Panel, ScrollBox } from "../components/PageShell";
+import { useAuth } from "../context/AuthContext";
 import { api, formatLbp, formatUsd, type PharmacySettings, type Product } from "../lib/api";
 
 const PAGE_SIZE = 50;
@@ -13,6 +14,7 @@ const emptyForm = {
 };
 
 export default function ProductsPage() {
+  const canManage = useAuth().can("products.manage");
   const [settings, setSettings] = useState<PharmacySettings | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -100,8 +102,8 @@ export default function ProductsPage() {
       title="Products"
       description="MoPH import fills names and ministry codes. Add your supplier barcode here (Edit) so POS scanning works."
     >
-      <div className="grid min-h-0 flex-1 gap-4 overflow-hidden xl:grid-cols-[360px_1fr]">
-        <ScrollBox className="shrink-0 xl:max-h-full">
+      <div className={`grid min-h-0 flex-1 gap-4 overflow-hidden ${canManage ? "xl:grid-cols-[360px_1fr]" : ""}`}>
+        <ScrollBox className={`shrink-0 xl:max-h-full ${canManage ? "" : "hidden"}`}>
         <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="text-lg font-semibold text-slate-900">{editingId ? "Edit product" : "Add product"}</h3>
           <div className="mt-4 space-y-3">
@@ -185,9 +187,11 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-2 py-3">{product.total_qty}</td>
                     <td className="px-2 py-3">
-                      <button type="button" onClick={() => startEdit(product)} className="text-teal-700 hover:underline">
-                        Edit
-                      </button>
+                      {canManage ? (
+                        <button type="button" onClick={() => startEdit(product)} className="text-teal-700 hover:underline">
+                          Edit
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

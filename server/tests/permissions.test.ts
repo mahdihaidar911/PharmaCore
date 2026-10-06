@@ -100,4 +100,14 @@ describe("pharmacist permissions", () => {
     assert.equal((await s.call("POST", "/api/reports/query", { token: cashier.token, body })).status, 403);
     assert.equal((await s.call("POST", "/api/reports/query", { token: pharmacist.token, body })).status, 200);
   });
+
+  test("editing a product without is_active keeps it inactive", async () => {
+    const name = uniqueName("Inactive");
+    const created = await s.call("POST", "/api/products", { token: pharmacist.token, body: { name, sale_price_usd: 2, is_active: false } });
+    assert.equal(created.status, 201);
+    const updated = await s.call("PUT", `/api/products/${created.body.id}`, { token: pharmacist.token, body: { name, sale_price_usd: 3 } });
+    assert.equal(updated.status, 200);
+    assert.equal(Boolean(updated.body.is_active), false);
+    assert.equal(updated.body.sale_price_usd, 3);
+  });
 });
