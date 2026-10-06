@@ -7,6 +7,7 @@ import type { Permission } from "./lib/api";
 import AccountPage from "./pages/AccountPage";
 import AssistantPage from "./pages/AssistantPage";
 import BackupPage from "./pages/BackupPage";
+import CashDrawerPage from "./pages/CashDrawerPage";
 import DashboardPage from "./pages/DashboardPage";
 import InventoryPage from "./pages/InventoryPage";
 import LoginPage from "./pages/LoginPage";
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/moph" element={<Guard anyOf={["catalog.import"]}><MophPage /></Guard>} />
         <Route path="/receive" element={<Guard anyOf={["inventory.receive"]}><ReceiveStockPage /></Guard>} />
         <Route path="/inventory" element={<Guard anyOf={["inventory.view"]}><InventoryPage /></Guard>} />
+        <Route path="/cash" element={<Guard anyOf={["cash.drawer"]}><CashDrawerPage /></Guard>} />
         <Route path="/sales" element={<Guard anyOf={["sales.view"]}><SalesPage /></Guard>} />
         <Route path="/returns" element={<Guard anyOf={["returns.create"]}><ReturnsPage /></Guard>} />
         <Route path="/reports" element={<Guard anyOf={["reports.inventory", "reports.sales"]}><ReportsPage /></Guard>} />

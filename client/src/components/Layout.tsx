@@ -12,6 +12,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Sell",
     items: [
       { to: "/pos", label: "Point of sale", icon: "pos", anyOf: ["pos.sell"] },
+      { to: "/cash", label: "Cash drawer", icon: "cash", anyOf: ["cash.drawer"] },
       { to: "/sales", label: "Sales history", icon: "sales", anyOf: ["sales.view"] },
       { to: "/returns", label: "Returns", icon: "returns", anyOf: ["returns.create"] },
     ],

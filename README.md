@@ -14,6 +14,15 @@ PharmaCore data.
 - Prices always come from the catalog on the server; only owners may override a price (audited)
 - Discounts (pharmacist/owner only), payment in USD, LBP or mixed, change calculation, browser receipt printing
 - Stock deducted first-expiry-first-out (FEFO) across batches, inside one database transaction
+- **Expired batches are never sold** (and cannot be received); POS stock counts only unexpired units
+- **Hold a sale** while serving another customer and resume it later (kept on the server, visible to the next shift)
+
+**Cash drawer**
+- Open a shift with a USD + LBP float; sales and refunds are blocked while the drawer is closed
+- Pay-ins / pay-outs with a reason (audited)
+- Close with a **blind count**: cashiers enter what they counted without seeing the expected amount;
+  pharmacists and the owner see expected vs counted per currency, the difference, and shift history
+- Printable shift (Z) report
 
 **Inventory**
 - Receive stock by batch with expiry and cost; full MoPH catalog import (~10k products)
@@ -33,7 +42,9 @@ PharmaCore data.
 - Audit log on sales, returns, stock changes, price overrides, settings, users, backups and imports
 
 **Reliability**
-- SQLite with WAL; one-click backups; restore validates the file and keeps a safety copy first
+- SQLite with WAL; **automatic daily backups** with retention, optional copy to a second location
+  (USB / external drive), backup-age warnings on the dashboard
+- Restore validates the file and keeps a safety copy first
 
 **AI business assistant** (optional, see [AI assistant](#ai-assistant))
 - Ask questions ("What sold best this month?"), **✨ Analyze business**, natural-language smart search
@@ -43,8 +54,8 @@ PharmaCore data.
 
 | Capability | Cashier | Pharmacist | Owner |
 |---|:-:|:-:|:-:|
-| Sell, view sales, look up stock, link barcodes, inventory reports, AI assistant | ✓ | ✓ | ✓ |
-| Discounts, returns, manage products, receive/adjust stock, sales reports, exchange rate, create backups | | ✓ | ✓ |
+| Sell, hold sales, open/close the drawer (blind count), pay-ins/outs, view sales, look up stock, link barcodes, inventory reports, AI assistant | ✓ | ✓ | ✓ |
+| Discounts, returns, manage products, receive/adjust stock, sales reports, cash reconciliation & shift history, exchange rate, create backups | | ✓ | ✓ |
 | Price override, profit reports, pharmacy settings/profile, users, restore backups, MoPH import, AI logs | | | ✓ |
 
 Source of truth: `server/src/auth/permissions.ts`. The user's role is re-read from the database on every request.
@@ -105,7 +116,7 @@ User question ─► POST /api/ai/chat ─► orchestrator
                          LLM writes the answer ─► { answer, tool_calls, grounded } ─► ai_logs
 ```
 
-- The model **never sees SQL or the database**; it can only call the 10 tools in `server/src/ai/tools.ts`.
+- The model **never sees SQL or the database**; it can only call the 11 tools in `server/src/ai/tools.ts`.
 - Tools a role cannot use are not offered, and are refused if called anyway.
 - **Smart search**: the model produces a structured query (`entity` + filters); it is validated against a
   strict schema, permission-checked, then run with parameterised SQL. Invalid output → 422, never guessed.
@@ -155,9 +166,24 @@ SQLite file at `server/data/pharmacore.db`, created and migrated automatically o
 additive and idempotent — existing data is preserved). Schema: [`docs/SCHEMA.md`](docs/SCHEMA.md).
 MoPH catalog import: [`docs/MOPH.md`](docs/MOPH.md).
 
-Backups (**Backup** page or `POST /api/backup/create`) go to `server/data/backups/`. **Copy them off the PC
-regularly.** Restoring (owner only) validates the file, saves a safety copy of the current data, then
-requires a server restart.
+Backups go to `server/data/backups/`:
+
+- **Automatic**: while the server runs it checks hourly and makes an `auto-*.db` backup when the newest
+  backup is 24 h old; the newest 14 (configurable) are kept.
+- **Manual**: *Back up now* on the Backup page (`POST /api/backup/create`).
+- **Second location** (owner, Backup page): a folder on a USB stick or another drive. Every backup is copied
+  there; failures show on the Backup page and the dashboard.
+
+Restoring (owner only) validates the file, saves a safety copy of the current data, then requires a server
+restart.
+
+## Daily routine
+
+1. **Open the drawer** (Cash drawer → count the float → *Open shift*). Selling is blocked until then.
+2. Sell. Use **Hold sale** to park a customer's cart; resume it from **Held sales**.
+3. Record cash taken out (supplier, delivery) or added as **pay-outs / pay-ins**.
+4. At the end of the shift, **Count & close shift**. Owner/pharmacist review the difference and print the report.
+5. Check the dashboard for expiry, low-stock and backup warnings.
 
 ## Running in production
 
@@ -173,7 +199,7 @@ The server serves the built client from `client/dist` at http://localhost:4000.
 ## Testing
 
 ```bash
-npm test           # 71 automated tests, in-memory database, no network
+npm test           # 84 automated tests, in-memory database, no network
 npm run typecheck
 ```
 
@@ -181,17 +207,35 @@ What is covered and the manual checklist: [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Screenshots
 
-Not yet captured for this version. To add: run `npm run dev`, capture POS, Dashboard, Reports and Assistant
-at desktop and tablet width into `docs/screenshots/`.
+Cash drawer, owner view: expected cash per currency and where it came from (demo data)
+
+![Cash drawer](docs/screenshots/cash-drawer.png)
+
+Cashier view of the same shift: blind count, no expected amounts
+
+![Cash drawer, cashier](docs/screenshots/cash-drawer-cashier.png)
+
+POS on a landscape tablet, and held sales
+
+![POS tablet](docs/screenshots/pos-tablet.png)
+![Held sales](docs/screenshots/pos-held-sales.png)
+
+Dashboard, backups, and the catalog on a portrait tablet
+
+![Dashboard](docs/screenshots/dashboard.png)
+![Backup](docs/screenshots/backup.png)
+![Products on tablet](docs/screenshots/products-tablet.png)
 
 ## Known limitations
 
 - **No customers / prescriptions** module yet, so there is no customer summary (AI or reports).
 - **No suppliers / purchase orders**; stock is received manually or via MoPH catalog data.
-- **No held invoices, cash drawer or shifts** (end-of-day cash reconciliation).
-- **Receipts** print through the browser dialog; no direct ESC/POS thermal printer driver.
+- **One cash drawer**: one open shift at a time. Card payments are not split from cash inside a single
+  sale ("mixed" means USD + LBP cash). Held sales do not reserve stock.
+- **Receipts and shift reports** print through the browser dialog; no direct ESC/POS thermal printer driver.
 - **Single workstation**: no multi-terminal sync; SQLite is not meant for concurrent PCs over a network share.
-- **Backups are manual** (no schedule) and stored on the same disk until copied elsewhere.
+- **Automatic backups run only while the server is running**; the second-location copy needs the drive connected.
+- Low-stock and valuation reports count expired units as stock until they are written off (POS does not sell them).
 - **Login throttling and AI rate limits are in memory** and reset when the server restarts.
 - The AI assistant needs an external or local LLM with tool calling; answer quality depends on the model.
 - UI is in English only (product names may be Arabic); no Arabic/RTL interface yet.
@@ -199,14 +243,12 @@ at desktop and tablet width into `docs/screenshots/`.
 
 ## Roadmap
 
-1. Scheduled automatic backups + copy to a second drive/USB, backup age warning on the dashboard
-2. Cash drawer / shift close with expected vs counted cash (USD and LBP)
-3. Held invoices and quick re-open on POS
-4. Suppliers and purchase orders; receive against a PO
-5. Customers (optional) with purchase history → enables `get_customer_summary` for the assistant
-6. Direct thermal printer support; Electron wrapper for kiosk-style startup
-7. Arabic / RTL interface
-8. Playwright end-to-end tests for POS and returns
+1. Suppliers and purchase orders; receive against a PO; supplier returns for expired stock
+2. Customers (optional) with purchase history → enables `get_customer_summary` for the assistant
+3. Split card + cash payments within one sale
+4. Direct thermal printer support; Electron wrapper / Windows service so backups run at boot
+5. Arabic / RTL interface
+6. Playwright end-to-end tests for POS, returns and the cash drawer
 
 ## Notes for Lebanon
 

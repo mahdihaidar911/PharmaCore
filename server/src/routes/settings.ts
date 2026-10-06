@@ -13,7 +13,9 @@ const settingsSchema = z.object({
 });
 
 function readSettings() {
-  const row = db.prepare("SELECT * FROM pharmacy_settings WHERE id = 1").get() as SettingsRow;
+  const { backup_auto_enabled: _auto, backup_keep_auto: _keep, backup_copy_dir: _copy, ...row } = db
+    .prepare("SELECT * FROM pharmacy_settings WHERE id = 1")
+    .get() as SettingsRow;
   return {
     ...row,
     name_ar: row.name_ar ?? "",

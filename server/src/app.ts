@@ -18,6 +18,8 @@ import returnsRoutes from "./routes/returns.js";
 import salesRoutes from "./routes/sales.js";
 import settingsRoutes from "./routes/settings.js";
 import userRoutes from "./routes/users.js";
+import heldCartRoutes from "./routes/heldCarts.js";
+import shiftRoutes from "./routes/shifts.js";
 
 export function createApp() {
   initializeDatabase();
@@ -31,7 +33,7 @@ export function createApp() {
     res.json({
       status: db.open ? "ok" : "restart_required",
       name: "PharmaCore API",
-      version: "pilot-2",
+      version: "pilot-3",
       features: { posSearch: true, checkout: true, mophImport: true, roles: true, ai: true },
     });
   });
@@ -58,6 +60,8 @@ export function createApp() {
   app.use("/api/backup", backupRoutes);
   app.use("/api/moph", mophRoutes);
   app.use("/api/ai", aiRoutes);
+  app.use("/api/shifts", shiftRoutes);
+  app.use("/api/held-carts", heldCartRoutes);
 
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "Not found" });

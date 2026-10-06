@@ -70,6 +70,8 @@ export async function startServer(): Promise<TestServer> {
   };
 
   const ownerToken = await login("admin", "admin123");
+  const shift = await call("POST", "/api/shifts/open", { token: ownerToken, body: { opening_usd: 0, opening_lbp: 0 } });
+  if (shift.status !== 201) throw new Error(`open shift failed: ${JSON.stringify(shift.body)}`);
 
   const createUser: TestServer["createUser"] = async (role, password = "secret123") => {
     const username = uniqueName(role);

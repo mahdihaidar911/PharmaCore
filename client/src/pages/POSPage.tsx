@@ -1,16 +1,22 @@
 import { FormEvent, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Link } from "react-router-dom";
+import { Icon } from "../components/icons";
 import { LinkBarcodePanel } from "../components/LinkBarcodePanel";
 import { PageShell, ScrollBox } from "../components/PageShell";
 import { printReceipt } from "../components/Receipt";
+import { Alert, ConfirmDialog, EmptyState, Field, Modal } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { isExactBarcodeMatch, looksLikeBarcodeScan, normalizeScan } from "../lib/barcode";
 import {
   api,
+  ApiError,
   formatLbp,
   formatUsd,
+  parseServerDate,
   usdToLbp,
   type CartItem,
+  type HeldCart,
   type PosProduct,
   type SaleDetail,
 } from "../lib/api";
@@ -36,6 +42,25 @@ export default function POSPage() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [scanHint, setScanHint] = useState("");
   const [pendingBarcode, setPendingBarcode] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState<boolean | null>(null);
+  const [held, setHeld] = useState<HeldCart[]>([]);
+  const [holdOpen, setHoldOpen] = useState(false);
+  const [holdLabel, setHoldLabel] = useState("");
+  const [heldListOpen, setHeldListOpen] = useState(false);
+  const [heldError, setHeldError] = useState("");
+  const [discardId, setDiscardId] = useState<number | null>(null);
+
+  const refreshHeld = useCallback(() => {
+    api.listHeldCarts().then(setHeld).catch(() => setHeld([]));
+  }, []);
+
+  useEffect(() => {
+    api
+      .getCurrentShift()
+      .then((cur) => setDrawerOpen(Boolean(cur.shift)))
+      .catch(() => setDrawerOpen(null));
+    refreshHeld();
+  }, [refreshHeld]);
 
   const runSearch = useCallback(async (q: string) => {
     const trimmed = normalizeScan(q);
@@ -329,6 +354,7 @@ export default function POSPage() {
       requestAnimationFrame(() => searchRef.current?.focus());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Checkout failed";
+      if (err instanceof ApiError && err.status === 409) setDrawerOpen(false);
       if (message === "Not found") {
         setCheckoutError(
           "Checkout API not available. Close every terminal, open a new one in PharmaCore folder, run: npm run dev",
@@ -343,6 +369,83 @@ export default function POSPage() {
     }
   }
 
+  function resetPayment() {
+    setDiscountUsd("0");
+    setPaidUsd("");
+    setPaidLbp("");
+    setCheckoutError("");
+  }
+
+  async function holdCurrentSale(event: FormEvent) {
+    event.preventDefault();
+    setHeldError("");
+    try {
+      await api.holdCart({
+        label: holdLabel.trim() || undefined,
+        items: cart.map((item) => ({ product_id: item.product_id, qty: item.qty })),
+        discount_usd: discount,
+      });
+      setCart([]);
+      resetPayment();
+      setHoldLabel("");
+      setHoldOpen(false);
+      setScanHint("Sale put on hold. Resume it from “Held sales”.");
+      refreshHeld();
+      requestAnimationFrame(() => searchRef.current?.focus());
+    } catch (err) {
+      setHeldError(err instanceof Error ? err.message : "Could not hold the sale");
+    }
+  }
+
+  async function resumeHeld(cartToResume: HeldCart) {
+    setHeldError("");
+    if (cart.length > 0) {
+      setHeldError("Finish or hold the current sale before resuming another one.");
+      return;
+    }
+    try {
+      const resumed = await api.resumeHeldCart(cartToResume.id);
+      const notes: string[] = [];
+      const items: CartItem[] = [];
+      for (const item of resumed.items) {
+        const qty = Math.min(item.qty, item.total_qty);
+        if (qty < item.qty) notes.push(qty === 0 ? `${item.name} is out of stock and was removed` : `${item.name} reduced to ${qty} (stock)`);
+        if (qty > 0) {
+          items.push({
+            product_id: item.product_id,
+            name: item.name,
+            barcode: item.barcode,
+            qty,
+            unit_price_usd: item.sale_price_usd,
+            sale_price_usd: item.sale_price_usd,
+          });
+        }
+      }
+      setCart(items);
+      resetPayment();
+      if (canDiscount && resumed.discount_usd > 0) setDiscountUsd(String(resumed.discount_usd));
+      setHeldListOpen(false);
+      setScanHint(`Resumed${resumed.label ? ` “${resumed.label}”` : ""}.${notes.length ? ` ${notes.join("; ")}.` : ""}`);
+      refreshHeld();
+      requestAnimationFrame(() => searchRef.current?.focus());
+    } catch (err) {
+      setHeldError(err instanceof Error ? err.message : "Could not resume the sale");
+      refreshHeld();
+    }
+  }
+
+  async function discardHeld() {
+    if (discardId === null) return;
+    try {
+      await api.discardHeldCart(discardId);
+    } catch (err) {
+      setHeldError(err instanceof Error ? err.message : "Could not discard the sale");
+    } finally {
+      setDiscardId(null);
+      refreshHeld();
+    }
+  }
+
   const showSearchError = Boolean(searchError) && normalizeScan(query).length > 0;
 
   return (
@@ -350,8 +453,16 @@ export default function POSPage() {
       title="POS"
       description="Scan to sell. Unknown barcode? Search the catalog to link it, or add a new product — barcodes build up as you work."
     >
-      <div className="grid min-h-0 flex-1 gap-4 overflow-hidden xl:grid-cols-[1fr_380px]">
+      <div className="grid min-h-0 flex-1 gap-4 overflow-auto lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_380px]">
         <section className="flex min-h-0 flex-col gap-3 overflow-hidden">
+          {drawerOpen === false ? (
+            <Alert tone="warning" title="The cash drawer is closed">
+              Open a shift before completing sales.{" "}
+              <Link to="/cash" className="font-medium underline">
+                Go to Cash drawer
+              </Link>
+            </Alert>
+          ) : null}
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-teal-800">Scan here (keyboard scanner)</span>
             <input
@@ -377,6 +488,7 @@ export default function POSPage() {
                   const active = document.activeElement;
                   if (active?.closest("[data-pos-link-panel]")) return;
                   if (active?.closest("form")) return;
+                  if (active?.closest('[role="dialog"]')) return;
                   searchRef.current?.focus();
                 });
               }}
@@ -436,6 +548,36 @@ export default function POSPage() {
             </ScrollBox>
           ) : null}
 
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-slate-700">
+              Cart{cart.length ? ` · ${cart.reduce((n, i) => n + i.qty, 0)} item(s)` : ""}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={cart.length === 0}
+                onClick={() => {
+                  setHeldError("");
+                  setHoldOpen(true);
+                }}
+              >
+                <Icon name="pause" className="h-4 w-4" /> Hold sale
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setHeldError("");
+                  refreshHeld();
+                  setHeldListOpen(true);
+                }}
+              >
+                Held sales{held.length ? <span className="badge badge-brand ml-1">{held.length}</span> : null}
+              </button>
+            </div>
+          </div>
+
           <ScrollBox className="min-h-0 flex-1 rounded-xl border border-slate-200 bg-white">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-slate-500">
@@ -469,7 +611,7 @@ export default function POSPage() {
           </ScrollBox>
         </section>
 
-        <ScrollBox className="min-h-0 rounded-xl border border-slate-200 bg-white xl:max-h-full">
+        <ScrollBox className="min-h-0 rounded-xl border border-slate-200 bg-white lg:max-h-full">
         <form onSubmit={handleCheckout} className="p-5">
           <h3 className="text-lg font-semibold text-slate-900">Payment</h3>
 
@@ -560,7 +702,7 @@ export default function POSPage() {
               >
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
-                <option value="mixed">Mixed</option>
+                <option value="mixed">Mixed cash (USD + LBP)</option>
               </select>
             </label>
           </div>
@@ -599,7 +741,7 @@ export default function POSPage() {
 
           <button
             type="submit"
-            disabled={checkingOut || cart.length === 0 || insufficient || discount > subtotalUsd}
+            disabled={checkingOut || cart.length === 0 || insufficient || discount > subtotalUsd || drawerOpen === false}
             className="btn btn-primary btn-lg mt-5 w-full"
           >
             {checkingOut ? "Processing..." : "Complete sale & print"}
@@ -617,6 +759,71 @@ export default function POSPage() {
         </form>
         </ScrollBox>
       </div>
+
+      <Modal
+        open={holdOpen}
+        title="Hold this sale"
+        size="sm"
+        onClose={() => setHoldOpen(false)}
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setHoldOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" form="hold-form" className="btn btn-primary">
+              Hold sale
+            </button>
+          </>
+        }
+      >
+        <form id="hold-form" onSubmit={holdCurrentSale} className="space-y-3">
+          <Field label="Label (optional)" hint="Helps find it later, e.g. the customer's name. Stock is not reserved while on hold.">
+            <input className="input" maxLength={60} value={holdLabel} onChange={(e) => setHoldLabel(e.target.value)} />
+          </Field>
+          {heldError ? <Alert tone="error">{heldError}</Alert> : null}
+        </form>
+      </Modal>
+
+      <Modal open={heldListOpen} title="Held sales" onClose={() => setHeldListOpen(false)}>
+        {heldError ? <Alert tone="error" className="mb-3">{heldError}</Alert> : null}
+        {held.length === 0 ? (
+          <EmptyState title="No held sales" description="Use “Hold sale” to park a cart while you serve another customer." />
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {held.map((h) => (
+              <li key={h.id} className="flex items-start justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-900">{h.label || `Sale on hold #${h.id}`}</p>
+                  <p className="text-xs text-slate-500">
+                    {parseServerDate(h.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {h.held_by} ·{" "}
+                    {h.items.reduce((n, i) => n + i.qty, 0)} item(s) · {formatUsd(h.subtotal_usd)}
+                  </p>
+                  <p className="truncate text-xs text-slate-500">{h.items.map((i) => `${i.qty}× ${i.name}`).join(", ")}</p>
+                  {h.items.some((i) => !i.available) ? <p className="text-xs text-amber-700">Some items no longer have enough stock.</p> : null}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDiscardId(h.id)}>
+                    Discard
+                  </button>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => resumeHeld(h)}>
+                    Resume
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={discardId !== null}
+        title="Discard held sale?"
+        message="The held cart will be deleted. No stock or money is affected."
+        confirmLabel="Discard"
+        destructive
+        onConfirm={discardHeld}
+        onCancel={() => setDiscardId(null)}
+      />
     </PageShell>
   );
 }

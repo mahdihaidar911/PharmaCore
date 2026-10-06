@@ -235,6 +235,8 @@ async function main() {
   });
 
   await test("POST /api/checkout — sale with change", async () => {
+    const current = await request("/api/shifts/current", { token });
+    assert(current.shift, "No cash shift is open. Open the drawer in the app first (sales are blocked without one).");
     const detail = await request("/api/checkout", {
       method: "POST",
       token,

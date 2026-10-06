@@ -1,6 +1,7 @@
 import { db, type ProductRow } from "../db/index.js";
+import { SELLABLE_QTY_SQL } from "./stock.js";
 
-export type ProductSearchRow = ProductRow & { total_qty: number };
+export type ProductSearchRow = ProductRow & { total_qty: number; sellable_qty: number };
 
 /** Strip control chars (barcode scanners often append CR/LF). */
 export function normalizeSearchQuery(raw: string): string {
@@ -68,7 +69,8 @@ export function searchProductsPage(
           SELECT COALESCE(SUM(sb.qty), 0)
           FROM stock_batches sb
           WHERE sb.product_id = p.id
-        ) AS total_qty
+        ) AS total_qty,
+        ${SELLABLE_QTY_SQL} AS sellable_qty
       FROM products p
       WHERE ${searchWhereClause(activeOnly)}
       ORDER BY total_qty DESC, TRIM(p.name) ASC
@@ -87,7 +89,8 @@ const stockQtySql = `
     SELECT COALESCE(SUM(sb.qty), 0)
     FROM stock_batches sb
     WHERE sb.product_id = p.id
-  ) AS total_qty
+  ) AS total_qty,
+  ${SELLABLE_QTY_SQL} AS sellable_qty
 `;
 
 function barcodeLookupVariants(barcode: string): string[] {
@@ -148,7 +151,8 @@ export function listProductsInStock(limit = 50): ProductSearchRow[] {
           SELECT COALESCE(SUM(sb.qty), 0)
           FROM stock_batches sb
           WHERE sb.product_id = p.id
-        ) AS total_qty
+        ) AS total_qty,
+        ${SELLABLE_QTY_SQL} AS sellable_qty
       FROM products p
       WHERE IFNULL(p.is_active, 1) = 1
         AND (
@@ -170,6 +174,6 @@ export function toPosProduct(row: ProductSearchRow) {
     name: row.name,
     category: row.category,
     sale_price_usd: row.sale_price_usd,
-    total_qty: Number(row.total_qty) || 0,
+    total_qty: Number(row.sellable_qty) || 0,
   };
 }

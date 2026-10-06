@@ -147,5 +147,8 @@ export type SettingsRow = {
   cnss_no: string;
   location: string;
   vat_no: string;
+  backup_auto_enabled: number;
+  backup_keep_auto: number;
+  backup_copy_dir: string;
   updated_at: string;
 };

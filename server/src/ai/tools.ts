@@ -14,6 +14,7 @@ import {
   getTopProducts,
   searchStock,
 } from "../services/reports.js";
+import { listShifts } from "../services/shifts.js";
 import type { ToolSpec } from "./provider.js";
 
 /**
@@ -167,6 +168,32 @@ export const AI_TOOLS: AiTool[] = [
     schema: z.object({}).strict(),
     parameters: objectParams({}),
     run: () => getInventoryValuation(),
+  },
+  {
+    name: "get_cash_shifts",
+    description:
+      "Recent cash-drawer shifts: who opened/closed them, sales count, expected vs counted cash in USD and LBP, and the difference (variance). Newest first.",
+    permission: "cash.reconcile",
+    schema: z.object({ limit: z.number().int().min(1).max(30).default(10) }).strict(),
+    parameters: objectParams({ limit: { type: "integer", minimum: 1, maximum: 30, description: "Number of shifts (default 10)." } }),
+    run: (a: { limit: number }) => ({
+      shifts: listShifts(a.limit).map((s) => ({
+        id: s.id,
+        status: s.status,
+        opened_at_utc: s.opened_at,
+        opened_by: s.opened_by_name,
+        closed_at_utc: s.closed_at,
+        closed_by: s.closed_by_name,
+        sale_count: s.totals.sale_count,
+        net_sales_usd: s.totals.net_sales_usd,
+        expected_usd: s.totals.expected_usd,
+        expected_lbp: s.totals.expected_lbp,
+        counted_usd: s.counted_usd,
+        counted_lbp: s.counted_lbp,
+        variance_usd: s.variance_usd,
+        variance_lbp: s.variance_lbp,
+      })),
+    }),
   },
 ];
 

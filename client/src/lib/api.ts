@@ -88,6 +88,8 @@ export type Permission =
   | "pos.price_override"
   | "sales.view"
   | "returns.create"
+  | "cash.drawer"
+  | "cash.reconcile"
   | "products.view"
   | "products.manage"
   | "products.link_barcode"
@@ -327,8 +329,105 @@ export type DashboardReport = {
 
 export type BackupFile = {
   filename: string;
+  kind: "manual" | "auto" | "pre-restore";
   size_bytes: number;
   created_at: string;
+};
+
+export type BackupSettings = { auto_enabled: boolean; keep_auto: number; copy_dir: string };
+
+export type BackupStatus = {
+  last_backup_at: string | null;
+  age_hours: number | null;
+  stale: boolean;
+  last_run: {
+    kind: string;
+    status: "ok" | "failed";
+    error: string | null;
+    copy_status: "copied" | "failed" | "skipped" | null;
+    copy_error: string | null;
+    created_at: string;
+  } | null;
+  settings: BackupSettings;
+  interval_hours: number;
+  warnings: string[];
+};
+
+export type CashShift = {
+  id: number;
+  status: "open" | "closed";
+  opened_by_name: string | null;
+  opened_at: string;
+  opening_usd: number;
+  opening_lbp: number;
+  closed_by_name: string | null;
+  closed_at: string | null;
+  expected_usd?: number | null;
+  expected_lbp?: number | null;
+  counted_usd: number | null;
+  counted_lbp: number | null;
+  notes: string | null;
+};
+
+export type ShiftTotals = {
+  sale_count: number;
+  card_sale_count: number;
+  net_sales_usd: number;
+  cash_sales_usd: number;
+  cash_sales_lbp: number;
+  refunds_usd: number;
+  refunds_lbp: number;
+  pay_in_usd: number;
+  pay_in_lbp: number;
+  pay_out_usd: number;
+  pay_out_lbp: number;
+  expected_usd: number;
+  expected_lbp: number;
+};
+
+export type CashMovement = {
+  id: number;
+  username: string | null;
+  type: "pay_in" | "pay_out";
+  amount_usd: number;
+  amount_lbp: number;
+  reason: string;
+  created_at: string;
+};
+
+/** `totals` is null for roles that count blind (no cash.reconcile). */
+export type CurrentShift =
+  | { shift: null }
+  | { shift: CashShift; movements: CashMovement[]; totals: ShiftTotals | null };
+
+export type ShiftCloseResult = {
+  shift: CashShift;
+  totals: ShiftTotals | null;
+  variance: { usd: number; lbp: number } | null;
+};
+
+export type ShiftHistoryItem = CashShift & {
+  totals: ShiftTotals;
+  variance_usd: number | null;
+  variance_lbp: number | null;
+};
+
+export type HeldCart = {
+  id: number;
+  label: string | null;
+  held_by: string | null;
+  discount_usd: number;
+  created_at: string;
+  subtotal_usd: number;
+  items: {
+    product_id: number;
+    qty: number;
+    name: string;
+    barcode: string | null;
+    sale_price_usd: number;
+    total_qty: number;
+    available: boolean;
+  }[];
 };
 
 export type MophStatus = {
@@ -509,11 +608,12 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
-  getProducts(options?: { search?: string; page?: number; pageSize?: number }) {
+  getProducts(options?: { search?: string; page?: number; pageSize?: number; includeInactive?: boolean }) {
     const params = new URLSearchParams();
     if (options?.search?.trim()) params.set("search", options.search.trim());
     if (options?.page) params.set("page", String(options.page));
     if (options?.pageSize) params.set("pageSize", String(options.pageSize));
+    if (options?.includeInactive) params.set("active", "false");
     const query = params.toString();
     return request<Paginated<Product>>(`/api/products${query ? `?${query}` : ""}`);
   },
@@ -627,7 +727,43 @@ export const api = {
     return request<BackupFile[]>("/api/backup");
   },
   createBackup() {
-    return request<{ filename: string }>("/api/backup/create", { method: "POST" });
+    return post<{ filename: string; copy_status: "copied" | "failed" | "skipped"; copy_error: string | null }>("/api/backup/create");
+  },
+  getBackupStatus() {
+    return request<BackupStatus>("/api/backup/status");
+  },
+  updateBackupSettings(payload: BackupSettings) {
+    return request<BackupSettings>("/api/backup/settings", { method: "PUT", body: JSON.stringify(payload) });
+  },
+  getCurrentShift() {
+    return request<CurrentShift>("/api/shifts/current");
+  },
+  openShift(payload: { opening_usd: number; opening_lbp: number; notes?: string }) {
+    return post<{ shift: CashShift }>("/api/shifts/open", payload);
+  },
+  addCashMovement(shiftId: number, payload: { type: "pay_in" | "pay_out"; amount_usd: number; amount_lbp: number; reason: string }) {
+    return post<{ id: number }>(`/api/shifts/${shiftId}/movements`, payload);
+  },
+  closeShift(shiftId: number, payload: { counted_usd: number; counted_lbp: number; notes?: string }) {
+    return post<ShiftCloseResult>(`/api/shifts/${shiftId}/close`, payload);
+  },
+  listShifts(limit = 30) {
+    return request<{ shifts: ShiftHistoryItem[] }>(withQuery("/api/shifts", { limit }));
+  },
+  getShiftDetail(id: number) {
+    return request<{ shift: CashShift; totals: ShiftTotals; movements: CashMovement[] }>(`/api/shifts/${id}`);
+  },
+  listHeldCarts() {
+    return request<HeldCart[]>("/api/held-carts");
+  },
+  holdCart(payload: { label?: string; items: { product_id: number; qty: number }[]; discount_usd: number }) {
+    return post<HeldCart>("/api/held-carts", payload);
+  },
+  resumeHeldCart(id: number) {
+    return post<HeldCart>(`/api/held-carts/${id}/resume`);
+  },
+  discardHeldCart(id: number) {
+    return request<void>(`/api/held-carts/${id}`, { method: "DELETE" });
   },
   restoreBackup(filename: string) {
     return request<{ message: string; restarted_required: boolean }>("/api/backup/restore", {

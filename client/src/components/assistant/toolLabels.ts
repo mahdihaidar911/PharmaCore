@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   search_products: "Product lookup",
   get_profit_summary: "Profit summary",
   get_inventory_valuation: "Stock valuation",
+  get_cash_shifts: "Cash drawer shifts",
 };
 
 export function toolLabel(name: string) {

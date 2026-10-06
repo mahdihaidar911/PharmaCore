@@ -15,6 +15,10 @@ const MATRIX = {
   "pos.price_override": ["owner"],
   "sales.view": ["owner", "pharmacist", "cashier"],
   "returns.create": ["owner", "pharmacist"],
+  /** Open/close the drawer, pay in/out. Cashiers count blind: they never see expected cash. */
+  "cash.drawer": ["owner", "pharmacist", "cashier"],
+  /** Expected vs counted cash, shift history and variances. */
+  "cash.reconcile": ["owner", "pharmacist"],
   "products.view": ["owner", "pharmacist", "cashier"],
   "products.manage": ["owner", "pharmacist"],
   "products.link_barcode": ["owner", "pharmacist", "cashier"],

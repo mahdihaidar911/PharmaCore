@@ -20,12 +20,25 @@ with `date(col, 'localtime')`; the client parses them with `parseServerDate`. Ex
 - `sales` / `sale_lines` — POS invoices with `exchange_rate_used`, discount, payments and change
 - `returns` / `return_items` — refunds linked to sale lines
 - `audit_logs` — who did what (sales, returns, stock, price overrides, settings, users, backups, imports)
+- `cash_shifts` — one drawer session: opener, opening float (USD/LBP), closer, expected and counted cash per
+  currency (stored at close), notes. A partial unique index allows only one `open` shift.
+- `cash_movements` — pay-ins / pay-outs per shift with amount (USD/LBP), reason and user
+- `held_carts` — parked POS carts (`items` JSON of product id + qty, label, discount); prices and stock are
+  re-read on resume
+- `backup_runs` — every backup attempt: kind (manual / auto / pre-restore), file, status, second-location copy
+  status and error
+- `sales.shift_id`, `returns.shift_id` — the shift whose drawer received or paid the money
+- `pharmacy_settings.backup_auto_enabled`, `backup_keep_auto`, `backup_copy_dir` — backup settings (owner only;
+  not exposed by `GET /api/settings`)
 - `ai_logs` — every assistant request: `user_id`, `kind` (chat / analyze / search), `prompt`, `response`,
   `tool_calls` (JSON), `model`, `status`, `error`, `latency_ms`
 
 ## Stock rules
 
 - **FEFO:** sales deduct from the earliest `expiry_date` batch first, in one transaction
+- **Expired stock is not sellable:** only batches with `expiry_date >= today` (local) are allocated or counted
+  as POS stock; expired units stay on record until written off with an adjustment
+- **Cash:** expected drawer = float + (paid − change) of cash/mixed sales − refunds + pay-ins − pay-outs, per currency
 - **No negative stock:** sales and adjustments cannot take a batch below zero
 - **Returns:** qty goes back to the original `batch_id`; refund = line share × (sale total ÷ line totals),
   so sale-level discounts are refunded proportionally

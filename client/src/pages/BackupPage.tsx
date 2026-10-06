@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { PageShell, Panel, ScrollBox } from "../components/PageShell";
-import { Alert, ConfirmDialog, EmptyState } from "../components/ui";
+import { Alert, Badge, ConfirmDialog, EmptyState, Field } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { api, type BackupFile } from "../lib/api";
+import { api, type BackupFile, type BackupStatus } from "../lib/api";
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -10,21 +10,44 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatAge(hours: number | null) {
+  if (hours === null) return "never";
+  if (hours < 1) return "less than an hour ago";
+  if (hours < 48) return `${Math.floor(hours)} hour(s) ago`;
+  return `${Math.floor(hours / 24)} day(s) ago`;
+}
+
+const KIND_LABEL: Record<BackupFile["kind"], { label: string; tone: "neutral" | "brand" | "warning" }> = {
+  manual: { label: "Manual", tone: "neutral" },
+  auto: { label: "Automatic", tone: "brand" },
+  "pre-restore": { label: "Before restore", tone: "warning" },
+};
+
 export default function BackupPage() {
   const { can } = useAuth();
+  const canConfigure = can("settings.manage");
   const [backups, setBackups] = useState<BackupFile[]>([]);
+  const [status, setStatus] = useState<BackupStatus | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ auto_enabled: true, keep_auto: "14", copy_dir: "" });
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [settingsError, setSettingsError] = useState("");
 
   async function load() {
-    setBackups(await api.listBackups());
+    const [list, st] = await Promise.all([api.listBackups(), api.getBackupStatus()]);
+    setBackups(list);
+    setStatus(st);
+    return st;
   }
 
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Failed to load backups"));
+    load()
+      .then((st) => setForm({ auto_enabled: st.settings.auto_enabled, keep_auto: String(st.settings.keep_auto), copy_dir: st.settings.copy_dir }))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load backups"));
   }, []);
 
   async function createBackup() {
@@ -33,7 +56,9 @@ export default function BackupPage() {
     setCreating(true);
     try {
       const result = await api.createBackup();
-      setMessage(`Backup created: ${result.filename}`);
+      const copyNote =
+        result.copy_status === "copied" ? " and copied to the second location" : result.copy_status === "failed" ? `, but the copy failed: ${result.copy_error}` : "";
+      setMessage(`Backup created: ${result.filename}${copyNote}.`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Backup failed");
@@ -58,31 +83,89 @@ export default function BackupPage() {
     }
   }
 
+  async function saveSettings(event: FormEvent) {
+    event.preventDefault();
+    setSettingsError("");
+    setSettingsMessage("");
+    try {
+      await api.updateBackupSettings({ auto_enabled: form.auto_enabled, keep_auto: Number(form.keep_auto), copy_dir: form.copy_dir.trim() });
+      setSettingsMessage(form.copy_dir.trim() ? "Saved. The folder is reachable; new backups will be copied there." : "Saved.");
+      await load();
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Could not save backup settings");
+    }
+  }
+
+  const keepInvalid = !Number.isInteger(Number(form.keep_auto)) || Number(form.keep_auto) < 3 || Number(form.keep_auto) > 365;
+
   return (
     <PageShell
       title="Backup & restore"
-      description={
-        <>
-          Backups are full copies of the database in <code className="text-xs">server/data/backups/</code>. Copy them to a USB drive or another
-          computer regularly — a backup on the same disk does not protect against disk failure.
-        </>
-      }
+      description="A backup is a full copy of the database. Keep at least one copy off this computer — a backup on the same disk does not survive a disk failure or theft."
       actions={
         <button type="button" onClick={createBackup} disabled={creating} className="btn btn-primary">
-          {creating ? "Creating…" : "Create backup now"}
+          {creating ? "Creating…" : "Back up now"}
         </button>
       }
     >
-      <div className="flex h-full min-h-0 w-full max-w-3xl flex-col gap-3 overflow-hidden">
-        {message ? <Alert tone="success">{message}</Alert> : null}
-        {error ? <Alert tone="error">{error}</Alert> : null}
+      <ScrollBox className="min-h-0 flex-1">
+        <div className="flex max-w-4xl flex-col gap-4 pb-4">
+          {message ? <Alert tone="success">{message}</Alert> : null}
+          {error ? <Alert tone="error">{error}</Alert> : null}
 
-        <Panel padding={false} className="min-h-0 flex-1">
-          <ScrollBox className="h-full min-h-0">
+          {status ? (
+            <div className="card card-body space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="card-title">Status</h3>
+                  <p className="text-sm text-slate-500">
+                    Last backup: <strong>{formatAge(status.age_hours)}</strong> · Automatic backups:{" "}
+                    {status.settings.auto_enabled ? `every ${status.interval_hours} h, keeping ${status.settings.keep_auto}` : "off"}
+                  </p>
+                </div>
+                <Badge tone={status.warnings.length === 0 ? "success" : status.stale ? "danger" : "warning"}>
+                  {status.warnings.length === 0 ? "Protected" : status.stale ? "At risk" : "Needs attention"}
+                </Badge>
+              </div>
+              {status.warnings.map((w) => (
+                <Alert key={w} tone={status.stale ? "error" : "warning"}>
+                  {w}
+                </Alert>
+              ))}
+            </div>
+          ) : null}
+
+          {canConfigure ? (
+            <form onSubmit={saveSettings} className="card card-body space-y-4">
+              <h3 className="card-title">Automatic backups</h3>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" className="h-4 w-4" checked={form.auto_enabled} onChange={(e) => setForm({ ...form, auto_enabled: e.target.checked })} />
+                Back up automatically once a day while PharmaCore is running
+              </label>
+              <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
+                <Field label="Keep automatic" error={keepInvalid ? "3 to 365" : null} hint="Older automatic backups are deleted.">
+                  <input type="number" min={3} max={365} className="input" value={form.keep_auto} onChange={(e) => setForm({ ...form, keep_auto: e.target.value })} />
+                </Field>
+                <Field label="Second location (optional)" hint="Full path to a USB stick, external drive or network folder, e.g. E:\PharmaCoreBackups. Every backup is copied there.">
+                  <input className="input font-mono text-sm" value={form.copy_dir} onChange={(e) => setForm({ ...form, copy_dir: e.target.value })} placeholder="E:\PharmaCoreBackups" />
+                </Field>
+              </div>
+              {settingsError ? <Alert tone="error">{settingsError}</Alert> : null}
+              {settingsMessage ? <Alert tone="success">{settingsMessage}</Alert> : null}
+              <button type="submit" className="btn btn-primary" disabled={keepInvalid}>
+                Save backup settings
+              </button>
+            </form>
+          ) : null}
+
+          <Panel padding={false}>
             {backups.map((backup) => (
               <div key={backup.filename} className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-0">
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-slate-900">{backup.filename}</p>
+                  <p className="flex items-center gap-2 truncate font-medium text-slate-900">
+                    <span className="truncate">{backup.filename}</span>
+                    <Badge tone={KIND_LABEL[backup.kind].tone}>{KIND_LABEL[backup.kind].label}</Badge>
+                  </p>
                   <p className="text-xs text-slate-500">
                     {new Date(backup.created_at).toLocaleString()} · {formatSize(backup.size_bytes)}
                   </p>
@@ -95,9 +178,9 @@ export default function BackupPage() {
               </div>
             ))}
             {backups.length === 0 ? <EmptyState title="No backups yet" description="Create one now, then copy it somewhere safe." /> : null}
-          </ScrollBox>
-        </Panel>
-      </div>
+          </Panel>
+        </div>
+      </ScrollBox>
 
       <ConfirmDialog
         open={Boolean(restoring)}

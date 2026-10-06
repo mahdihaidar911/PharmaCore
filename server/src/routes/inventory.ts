@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { logAudit } from "../services/audit.js";
+import { localDateString } from "../services/dates.js";
 import { BusinessError } from "../services/errors.js";
 import { parsePageQuery, paginatedResponse } from "../services/pagination.js";
 import { ADJUSTMENT_REASONS, adjustBatch } from "../services/stock.js";
@@ -35,6 +36,9 @@ router.post("/receive", requireAuth, requirePermission("inventory.receive"), (re
 
   if (!product_id && !product) {
     return res.status(400).json({ error: "Provide product_id or product details for a new product" });
+  }
+  if (expiry_date < localDateString()) {
+    return res.status(400).json({ error: `This batch expired on ${expiry_date}. Expired stock cannot be received.` });
   }
 
   const userId = req.user!.userId;

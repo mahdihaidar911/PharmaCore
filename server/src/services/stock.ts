@@ -6,11 +6,20 @@ export type BatchAllocation = {
   qty: number;
 };
 
+/** A batch can be sold through its expiry date (local time), never after. */
+export const SELLABLE_BATCH_SQL = (alias = "") => {
+  const p = alias ? `${alias}.` : "";
+  return `${p}qty > 0 AND ${p}expiry_date >= date('now', 'localtime')`;
+};
+
+/** Correlated subquery for the sellable quantity of product `p`. */
+export const SELLABLE_QTY_SQL = `(SELECT COALESCE(SUM(sbq.qty), 0) FROM stock_batches sbq WHERE sbq.product_id = p.id AND ${SELLABLE_BATCH_SQL("sbq")})`;
+
 export function allocateFefo(productId: number, qtyNeeded: number): BatchAllocation[] {
   const batches = db
     .prepare(`
       SELECT id, qty FROM stock_batches
-      WHERE product_id = ? AND qty > 0
+      WHERE product_id = ? AND ${SELLABLE_BATCH_SQL()}
       ORDER BY expiry_date ASC, id ASC
     `)
     .all(productId) as { id: number; qty: number }[];

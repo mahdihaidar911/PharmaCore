@@ -3,6 +3,7 @@ import { db, type ProductRow, type SettingsRow } from "../db/index.js";
 import { logAudit } from "./audit.js";
 import { BusinessError, roundMoney } from "./errors.js";
 import { computeChange } from "./payment.js";
+import { requireOpenShiftId } from "./shifts.js";
 import { allocateFefo, deductFromBatches } from "./stock.js";
 
 export type CheckoutInput = {
@@ -35,6 +36,7 @@ export function completeSale(input: CheckoutInput, actor: Actor): number {
   const priceOverrides: { product_id: number; catalog: number; charged: number }[] = [];
 
   const saleId = db.transaction(() => {
+    const shiftId = requireOpenShiftId();
     let subtotalUsd = 0;
     const lineRecords: {
       product_id: number;
@@ -62,7 +64,16 @@ export function completeSale(input: CheckoutInput, actor: Actor): number {
       try {
         allocations = allocateFefo(item.product_id, item.qty);
       } catch {
-        throw new BusinessError(`Not enough stock for ${product.name}`);
+        const { expired } = db
+          .prepare(
+            "SELECT COALESCE(SUM(qty), 0) AS expired FROM stock_batches WHERE product_id = ? AND qty > 0 AND expiry_date < date('now', 'localtime')",
+          )
+          .get(item.product_id) as { expired: number };
+        throw new BusinessError(
+          expired > 0
+            ? `Not enough unexpired stock for ${product.name}. ${expired} unit(s) are expired and cannot be sold — write them off in Inventory.`
+            : `Not enough stock for ${product.name}`,
+        );
       }
       deductFromBatches(allocations);
 
@@ -102,8 +113,8 @@ export function completeSale(input: CheckoutInput, actor: Actor): number {
       .prepare(`
         INSERT INTO sales (
           total_usd, total_lbp, exchange_rate_used, paid_usd, paid_lbp,
-          change_usd, change_lbp, user_id, discount_usd, payment_method, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          change_usd, change_lbp, user_id, discount_usd, payment_method, notes, shift_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         totalUsd,
@@ -117,6 +128,7 @@ export function completeSale(input: CheckoutInput, actor: Actor): number {
         discount_usd,
         payment_method,
         notes ?? null,
+        shiftId,
       );
 
     const newSaleId = Number(saleResult.lastInsertRowid);

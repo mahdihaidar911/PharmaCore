@@ -5,7 +5,7 @@ import { PageShell, ScrollBox } from "../components/PageShell";
 import { Alert, EmptyState, Spinner, StatCard } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
-import { api, formatLbp, formatUsd, type DashboardReport } from "../lib/api";
+import { api, formatLbp, formatUsd, type BackupStatus, type DashboardReport } from "../lib/api";
 
 function daysUntil(isoDate: string) {
   const today = new Date();
@@ -20,12 +20,17 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const pharmacyName = settings?.name?.trim() || "PharmaCore Pharmacy";
 
+  const [backup, setBackup] = useState<BackupStatus | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState<boolean | null>(null);
+
   useEffect(() => {
     api
       .getDashboardReport()
       .then(setReport)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load dashboard"));
-  }, []);
+    if (can("backup.create")) api.getBackupStatus().then(setBackup).catch(() => setBackup(null));
+    if (can("cash.drawer")) api.getCurrentShift().then((cur) => setDrawerOpen(Boolean(cur.shift))).catch(() => setDrawerOpen(null));
+  }, [can]);
 
   const expiryAlerts = report ? [...report.expired, ...report.nearExpiry].slice(0, 8) : [];
 
@@ -50,6 +55,22 @@ export default function DashboardPage() {
       }
     >
       {error ? <Alert tone="error">{error}</Alert> : null}
+      {drawerOpen === false ? (
+        <Alert tone="warning" title="Cash drawer is closed">
+          Open a shift before the first sale.{" "}
+          <Link to="/cash" className="font-medium underline">
+            Open drawer
+          </Link>
+        </Alert>
+      ) : null}
+      {backup && (backup.stale || backup.last_run?.status === "failed" || backup.last_run?.copy_status === "failed") ? (
+        <Alert tone={backup.stale ? "error" : "warning"} title="Backups need attention">
+          {backup.warnings.filter((w) => !/only on this computer/.test(w)).join(" ")}{" "}
+          <Link to="/backup" className="font-medium underline">
+            Open Backup
+          </Link>
+        </Alert>
+      ) : null}
 
       <ScrollBox className="min-h-0 flex-1">
         {!report && !error ? <Spinner className="p-4" /> : null}

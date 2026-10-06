@@ -1,24 +1,35 @@
-import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { PageShell, ScrollBox } from "../components/PageShell";
-import { api, type Product } from "../lib/api";
+import { Alert, Field } from "../components/ui";
+import { api, localToday, type Product } from "../lib/api";
+
+const emptyForm = {
+  product_id: "",
+  barcode: "",
+  name: "",
+  category: "",
+  sale_price_usd: "",
+  qty: "",
+  expiry_date: "",
+  cost_usd: "",
+  notes: "",
+};
+
+const SHORT_DATED_DAYS = 90;
+
+function daysUntil(isoDate: string) {
+  const today = new Date(`${localToday()}T00:00:00`);
+  return Math.round((new Date(`${isoDate}T00:00:00`).getTime() - today.getTime()) / 86_400_000);
+}
 
 export default function ReceiveStockPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [mode, setMode] = useState<"existing" | "new">("existing");
-  const [form, setForm] = useState({
-    product_id: "",
-    barcode: "",
-    name: "",
-    category: "",
-    sale_price_usd: "",
-    qty: "",
-    expiry_date: "",
-    cost_usd: "",
-    notes: "",
-  });
+  const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const q = productSearch.trim();
@@ -35,20 +46,30 @@ export default function ReceiveStockPage() {
     return () => clearTimeout(timer);
   }, [productSearch]);
 
+  const today = localToday();
+  const qty = Number(form.qty);
+  const qtyInvalid = form.qty !== "" && (!Number.isInteger(qty) || qty <= 0);
+  const expired = form.expiry_date !== "" && form.expiry_date < today;
+  const daysLeft = form.expiry_date && !expired ? daysUntil(form.expiry_date) : null;
+  const shortDated = daysLeft !== null && daysLeft <= SHORT_DATED_DAYS;
+  const set = (patch: Partial<typeof emptyForm>) => setForm((f) => ({ ...f, ...patch }));
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (qtyInvalid || expired) return;
     setMessage("");
     setError("");
+    setSaving(true);
 
+    const common = {
+      qty,
+      expiry_date: form.expiry_date,
+      cost_usd: form.cost_usd ? Number(form.cost_usd) : null,
+      notes: form.notes.trim() || null,
+    };
     const payload =
       mode === "existing"
-        ? {
-            product_id: Number(form.product_id),
-            qty: Number(form.qty),
-            expiry_date: form.expiry_date,
-            cost_usd: form.cost_usd ? Number(form.cost_usd) : null,
-            notes: form.notes.trim() || null,
-          }
+        ? { product_id: Number(form.product_id), ...common }
         : {
             product: {
               barcode: form.barcode.trim() || null,
@@ -56,174 +77,124 @@ export default function ReceiveStockPage() {
               category: form.category.trim() || null,
               sale_price_usd: Number(form.sale_price_usd),
             },
-            qty: Number(form.qty),
-            expiry_date: form.expiry_date,
-            cost_usd: form.cost_usd ? Number(form.cost_usd) : null,
-            notes: form.notes.trim() || null,
+            ...common,
           };
 
     try {
       const result = await api.receiveStock(payload);
-      setMessage(`Stock received. Product #${result.product_id}, batch #${result.batch_id}.`);
-      setForm({
-        product_id: "",
-        barcode: "",
-        name: "",
-        category: "",
-        sale_price_usd: "",
-        qty: "",
-        expiry_date: "",
-        cost_usd: "",
-        notes: "",
-      });
+      const name = mode === "existing" ? products.find((p) => p.id === Number(form.product_id))?.name : form.name.trim();
+      setMessage(`Received ${qty} × ${name ?? `product #${result.product_id}`} (batch #${result.batch_id}, expires ${form.expiry_date}).`);
+      setForm(emptyForm);
       setProductSearch("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to receive stock");
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
-    <PageShell title="Receive stock" description="Add inventory to an existing product or create one on receive.">
-      <ScrollBox className="mx-auto min-h-0 w-full max-w-2xl flex-1">
-      <div className="space-y-6 pb-4">
-
-      <div className="flex gap-2">
-        <ModeButton active={mode === "existing"} onClick={() => setMode("existing")}>
-          Existing product
-        </ModeButton>
-        <ModeButton active={mode === "new"} onClick={() => setMode("new")}>
-          New product
-        </ModeButton>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
-        {mode === "existing" ? (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700">
-              Search product
-              <input
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                placeholder="Name, MoPH code, or barcode (2+ chars)…"
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Product
-              <select
-                required
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={form.product_id}
-                onChange={(e) => setForm({ ...form, product_id: e.target.value })}
-              >
-                <option value="">Select product</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name} {product.barcode ? `(${product.barcode})` : ""} — stock: {product.total_qty}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {productSearch.trim().length >= 2 && products.length === 0 ? (
-              <p className="text-sm text-amber-700">
-                No products match. Switch to &quot;New product&quot; or search MoPH catalog in Products.
-              </p>
-            ) : null}
-            {productSearch.trim().length < 2 ? (
-              <p className="text-sm text-slate-500">Type at least 2 characters to search the catalog.</p>
-            ) : null}
+    <PageShell title="Receive stock" description="Add a delivered batch to an existing product, or create the product as you receive it.">
+      <ScrollBox className="min-h-0 w-full max-w-2xl flex-1">
+        <div className="space-y-4 pb-4">
+          <div className="flex gap-2">
+            <button type="button" className={`tab ${mode === "existing" ? "tab-active" : ""}`} onClick={() => setMode("existing")}>
+              Existing product
+            </button>
+            <button type="button" className={`tab ${mode === "new" ? "tab-active" : ""}`} onClick={() => setMode("new")}>
+              New product
+            </button>
           </div>
-        ) : (
-          <>
-            <Field label="Barcode" value={form.barcode} onChange={(value) => setForm({ ...form, barcode: value })} />
-            <Field label="Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
-            <Field label="Category" value={form.category} onChange={(value) => setForm({ ...form, category: value })} />
-            <Field
-              label="Sale price (USD)"
-              value={form.sale_price_usd}
-              onChange={(value) => setForm({ ...form, sale_price_usd: value })}
-              type="number"
-              required
-            />
-          </>
-        )}
 
-        <Field label="Quantity" value={form.qty} onChange={(value) => setForm({ ...form, qty: value })} type="number" required />
-        <Field
-          label="Expiry date"
-          value={form.expiry_date}
-          onChange={(value) => setForm({ ...form, expiry_date: value })}
-          type="date"
-          required
-        />
-        <Field
-          label="Cost (USD, optional)"
-          value={form.cost_usd}
-          onChange={(value) => setForm({ ...form, cost_usd: value })}
-          type="number"
-        />
-        <Field label="Notes" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} />
+          <form onSubmit={handleSubmit} className="card card-body space-y-4">
+            {mode === "existing" ? (
+              <>
+                <Field label="Search product" hint={productSearch.trim().length < 2 ? "Type at least 2 characters to search the catalog." : undefined}>
+                  <input
+                    className="input"
+                    placeholder="Name, MoPH code, or barcode…"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                  />
+                </Field>
+                <Field label="Product">
+                  <select required className="input" value={form.product_id} onChange={(e) => set({ product_id: e.target.value })}>
+                    <option value="">Select product</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} {product.barcode ? `(${product.barcode})` : ""} — stock: {product.total_qty}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {productSearch.trim().length >= 2 && products.length === 0 ? (
+                  <Alert tone="warning">No products match. Switch to “New product”, or check the MoPH catalog under Products.</Alert>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Field label="Barcode">
+                  <input className="input" value={form.barcode} onChange={(e) => set({ barcode: e.target.value })} />
+                </Field>
+                <Field label="Name">
+                  <input className="input" required value={form.name} onChange={(e) => set({ name: e.target.value })} />
+                </Field>
+                <Field label="Category">
+                  <input className="input" value={form.category} onChange={(e) => set({ category: e.target.value })} />
+                </Field>
+                <Field label="Sale price (USD)">
+                  <input type="number" min={0} step="0.01" required className="input" value={form.sale_price_usd} onChange={(e) => set({ sale_price_usd: e.target.value })} />
+                </Field>
+              </>
+            )}
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {message ? <p className="text-sm text-teal-700">{message}</p> : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Quantity (units)" error={qtyInvalid ? "Whole number above 0" : null}>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  required
+                  className={`input ${qtyInvalid ? "input-invalid" : ""}`}
+                  value={form.qty}
+                  onChange={(e) => set({ qty: e.target.value })}
+                />
+              </Field>
+              <Field label="Expiry date" error={expired ? "This date is in the past — expired stock cannot be received." : null}>
+                <input
+                  type="date"
+                  min={today}
+                  required
+                  className={`input ${expired ? "input-invalid" : ""}`}
+                  value={form.expiry_date}
+                  onChange={(e) => set({ expiry_date: e.target.value })}
+                />
+              </Field>
+            </div>
+            {shortDated ? (
+              <Alert tone="warning">
+                Short-dated: this batch expires in {daysLeft} day(s). Check it was agreed with the supplier.
+              </Alert>
+            ) : null}
 
-        <button type="submit" className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white">
-          Receive stock
-        </button>
-      </form>
-      </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Cost per unit (USD, optional)" hint="Used for profit reports.">
+                <input type="number" min={0} step="0.01" className="input" value={form.cost_usd} onChange={(e) => set({ cost_usd: e.target.value })} />
+              </Field>
+              <Field label="Notes">
+                <input className="input" value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Supplier, invoice no.…" />
+              </Field>
+            </div>
+
+            {error ? <Alert tone="error">{error}</Alert> : null}
+            {message ? <Alert tone="success">{message}</Alert> : null}
+
+            <button type="submit" className="btn btn-primary btn-lg w-full sm:w-auto" disabled={saving || qtyInvalid || expired}>
+              {saving ? "Saving…" : "Receive stock"}
+            </button>
+          </form>
+        </div>
       </ScrollBox>
     </PageShell>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-lg px-4 py-2 text-sm font-medium ${
-        active ? "bg-teal-700 text-white" : "border border-slate-200 bg-white text-slate-700"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  required = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block text-sm font-medium text-slate-700">
-      {label}
-      <input
-        type={type}
-        required={required}
-        step={type === "number" ? "0.01" : undefined}
-        min={type === "number" ? "0" : undefined}
-        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </label>
   );
 }

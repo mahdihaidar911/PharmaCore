@@ -3,7 +3,8 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { logAudit } from "../services/audit.js";
-import { roundMoney } from "../services/errors.js";
+import { BusinessError, roundMoney } from "../services/errors.js";
+import { requireOpenShiftId } from "../services/shifts.js";
 import { addToBatch } from "../services/stock.js";
 import { getSaleDetail } from "../services/saleDetail.js";
 
@@ -53,14 +54,15 @@ router.post("/", requireAuth, requirePermission("returns.create"), (req, res) =>
 
   try {
     const returnId = db.transaction(() => {
+      const shiftId = requireOpenShiftId();
       let refundTotalUsd = 0;
 
       const returnResult = db
         .prepare(`
-          INSERT INTO returns (sale_id, user_id, refund_usd, refund_lbp, exchange_rate_used, notes)
-          VALUES (?, ?, 0, 0, ?, ?)
+          INSERT INTO returns (sale_id, user_id, refund_usd, refund_lbp, exchange_rate_used, notes, shift_id)
+          VALUES (?, ?, 0, 0, ?, ?, ?)
         `)
-        .run(sale_id, userId, sale.exchange_rate_used, notes ?? null);
+        .run(sale_id, userId, sale.exchange_rate_used, notes ?? null, shiftId);
 
       const newReturnId = Number(returnResult.lastInsertRowid);
 
@@ -148,6 +150,9 @@ router.post("/", requireAuth, requirePermission("returns.create"), (req, res) =>
       sale: getSaleDetail(sale_id),
     });
   } catch (error) {
+    if (error instanceof BusinessError) {
+      return res.status(error.status).json({ error: error.message });
+    }
     if (error instanceof Error) {
       return res.status(400).json({ error: error.message });
     }

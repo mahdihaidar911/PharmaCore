@@ -2,23 +2,21 @@ import Database from "better-sqlite3";
 import { Router } from "express";
 import fs from "fs";
 import path from "path";
-import { config } from "../config.js";
+import { z } from "zod";
 import { db, dbPath } from "../db/index.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { logAudit } from "../services/audit.js";
-
-const backupsDir = config.backupsDir;
-fs.mkdirSync(backupsDir, { recursive: true });
+import {
+  backupsDir,
+  checkCopyDir,
+  createBackup,
+  getBackupStatus,
+  isSafeBackupName,
+  listBackupFiles,
+  readBackupSettings,
+} from "../services/backup.js";
 
 const router = Router();
-
-function timestamp() {
-  return new Date().toISOString().replace(/[:.]/g, "-");
-}
-
-function isSafeBackupName(filename: unknown): filename is string {
-  return typeof filename === "string" && /^[\w.-]+\.db$/.test(filename) && !filename.includes("..");
-}
 
 /** Opens the file read-only and confirms it is an intact PharmaCore database. */
 function validateBackupFile(filePath: string): string | null {
@@ -43,26 +41,39 @@ function validateBackupFile(filePath: string): string | null {
 }
 
 router.get("/", requireAuth, requirePermission("backup.create"), (_req, res) => {
-  const files = fs
-    .readdirSync(backupsDir)
-    .filter((f) => f.endsWith(".db"))
-    .map((filename) => {
-      const stat = fs.statSync(path.join(backupsDir, filename));
-      return { filename, size_bytes: stat.size, created_at: stat.mtime.toISOString() };
-    })
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return res.json(listBackupFiles());
+});
 
-  return res.json(files);
+router.get("/status", requireAuth, requirePermission("backup.create"), (_req, res) => {
+  return res.json(getBackupStatus());
+});
+
+const settingsSchema = z.object({
+  auto_enabled: z.boolean(),
+  keep_auto: z.number().int().min(3).max(365),
+  copy_dir: z.string().trim().max(400),
+});
+
+router.put("/settings", requireAuth, requirePermission("settings.manage"), (req, res) => {
+  const parsed = settingsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { auto_enabled, keep_auto, copy_dir } = parsed.data;
+  if (copy_dir) {
+    const problem = checkCopyDir(copy_dir);
+    if (problem) return res.status(400).json({ error: problem });
+  }
+  db.prepare(
+    "UPDATE pharmacy_settings SET backup_auto_enabled = ?, backup_keep_auto = ?, backup_copy_dir = ? WHERE id = 1",
+  ).run(auto_enabled ? 1 : 0, keep_auto, copy_dir);
+  logAudit({ userId: req.user?.userId, action: "backup.settings_updated", entityType: "settings", details: parsed.data });
+  return res.json(readBackupSettings());
 });
 
 router.post("/create", requireAuth, requirePermission("backup.create"), async (req, res) => {
-  const filename = `pharmacore-${timestamp()}.db`;
-  const destPath = path.join(backupsDir, filename);
-
   try {
-    await db.backup(destPath);
-    logAudit({ userId: req.user?.userId, action: "backup.created", entityType: "backup", details: { filename } });
-    return res.status(201).json({ filename, path: destPath });
+    const result = await createBackup("manual");
+    logAudit({ userId: req.user?.userId, action: "backup.created", entityType: "backup", details: { filename: result.filename } });
+    return res.status(201).json(result);
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Backup failed" });
   }
@@ -74,7 +85,7 @@ router.post("/restore", requireAuth, requirePermission("backup.restore"), async 
     return res.status(400).json({ error: "Invalid backup filename" });
   }
 
-  const backupPath = path.join(backupsDir, filename);
+  const backupPath = path.join(backupsDir(), filename);
   if (!fs.existsSync(backupPath)) {
     return res.status(404).json({ error: "Backup file not found" });
   }
@@ -87,14 +98,13 @@ router.post("/restore", requireAuth, requirePermission("backup.restore"), async 
     return res.status(400).json({ error: problem });
   }
 
-  const safetyName = `pre-restore-${timestamp()}.db`;
   try {
-    await db.backup(path.join(backupsDir, safetyName));
+    const safety = await createBackup("pre-restore");
     logAudit({
       userId: req.user?.userId,
       action: "backup.restored",
       entityType: "backup",
-      details: { filename, safety_backup: safetyName },
+      details: { filename, safety_backup: safety.filename },
     });
 
     db.close();
@@ -104,9 +114,9 @@ router.post("/restore", requireAuth, requirePermission("backup.restore"), async 
     fs.copyFileSync(backupPath, dbPath);
 
     return res.json({
-      message: `Database restored from ${filename}. A safety copy of the previous data was saved as ${safetyName}. Restart the PharmaCore server now.`,
+      message: `Database restored from ${filename}. A safety copy of the previous data was saved as ${safety.filename}. Restart the PharmaCore server now.`,
       restarted_required: true,
-      safety_backup: safetyName,
+      safety_backup: safety.filename,
     });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Restore failed" });
