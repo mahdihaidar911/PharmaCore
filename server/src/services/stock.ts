@@ -1,4 +1,5 @@
 import { db } from "../db/index.js";
+import { BusinessError } from "./errors.js";
 
 export type BatchAllocation = {
   batch_id: number;
@@ -43,4 +44,39 @@ export function deductFromBatches(allocations: BatchAllocation[]) {
 
 export function addToBatch(batchId: number, qty: number) {
   db.prepare("UPDATE stock_batches SET qty = qty + ? WHERE id = ?").run(qty, batchId);
+}
+
+export const ADJUSTMENT_REASONS = ["expired", "damaged", "lost", "count_correction", "other"] as const;
+export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
+
+/** Manual correction of one batch. Negative qtyChange removes stock (write-off), positive adds. */
+export function adjustBatch(params: {
+  batchId: number;
+  qtyChange: number;
+  reason: AdjustmentReason;
+  notes: string | null;
+  userId: number;
+}) {
+  return db.transaction(() => {
+    const batch = db
+      .prepare("SELECT id, product_id, qty FROM stock_batches WHERE id = ?")
+      .get(params.batchId) as { id: number; product_id: number; qty: number } | undefined;
+    if (!batch) {
+      throw new BusinessError("Batch not found", 404);
+    }
+    const newQty = batch.qty + params.qtyChange;
+    if (newQty < 0) {
+      throw new BusinessError(`Cannot remove ${-params.qtyChange} units; batch only has ${batch.qty}`);
+    }
+
+    db.prepare("UPDATE stock_batches SET qty = ? WHERE id = ?").run(newQty, batch.id);
+    const movement = db
+      .prepare(`
+        INSERT INTO stock_movements (product_id, batch_id, movement_type, qty_change, reference_id, user_id, reason, notes)
+        VALUES (?, ?, 'adjustment', ?, ?, ?, ?, ?)
+      `)
+      .run(batch.product_id, batch.id, params.qtyChange, batch.id, params.userId, params.reason, params.notes);
+
+    return { movement_id: Number(movement.lastInsertRowid), batch_id: batch.id, product_id: batch.product_id, qty: newQty };
+  })();
 }

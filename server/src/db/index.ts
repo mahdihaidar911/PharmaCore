@@ -1,16 +1,14 @@
 import Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
-import { runMigrations } from "./migrate.js";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { config } from "../config.js";
+import { runMigrations } from "./migrate.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, "../../data");
-const dbPath = path.join(dataDir, "pharmacore.db");
+export const dbPath = config.dbPath;
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+if (dbPath !== ":memory:") {
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 }
 
 export const db = new Database(dbPath);
@@ -106,9 +104,9 @@ export function initializeDatabase() {
 
   const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
   if (userCount.count === 0) {
-    const passwordHash = bcrypt.hashSync("admin123", 10);
+    const passwordHash = bcrypt.hashSync(config.initialAdminPassword, 10);
     db.prepare(`
-      INSERT INTO users (username, password_hash) VALUES (?, ?)
+      INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, 'owner', 'Owner')
     `).run("admin", passwordHash);
   }
 }
@@ -122,6 +120,17 @@ export type ProductRow = {
   is_active: number;
   created_at: string;
   updated_at: string;
+};
+
+export type UserRow = {
+  id: number;
+  username: string;
+  password_hash: string;
+  role: string;
+  full_name: string | null;
+  is_active: number;
+  last_login_at: string | null;
+  created_at: string;
 };
 
 export type SettingsRow = {

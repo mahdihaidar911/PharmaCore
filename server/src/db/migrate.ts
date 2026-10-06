@@ -14,6 +14,16 @@ export function runMigrations(database: Database.Database) {
     addColumn(database, "users", "role TEXT NOT NULL DEFAULT 'owner'");
   }
 
+  if (!columnExists(database, "users", "full_name")) {
+    addColumn(database, "users", "full_name TEXT");
+  }
+  if (!columnExists(database, "users", "is_active")) {
+    addColumn(database, "users", "is_active INTEGER NOT NULL DEFAULT 1");
+  }
+  if (!columnExists(database, "users", "last_login_at")) {
+    addColumn(database, "users", "last_login_at TEXT");
+  }
+
   if (!columnExists(database, "products", "min_stock")) {
     addColumn(database, "products", "min_stock INTEGER NOT NULL DEFAULT 5");
   }
@@ -148,6 +158,9 @@ export function runMigrations(database: Database.Database) {
   if (!columnExists(database, "stock_movements", "user_id")) {
     addColumn(database, "stock_movements", "user_id INTEGER REFERENCES users(id)");
   }
+  if (!columnExists(database, "stock_movements", "reason")) {
+    addColumn(database, "stock_movements", "reason TEXT");
+  }
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS returns (
@@ -182,6 +195,23 @@ export function runMigrations(database: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS ai_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id),
+      kind TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      response TEXT,
+      tool_calls TEXT,
+      model TEXT,
+      status TEXT NOT NULL,
+      error TEXT,
+      latency_ms INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ai_logs_created ON ai_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_stock_movements_created ON stock_movements(created_at);
+    CREATE INDEX IF NOT EXISTS idx_sale_lines_product ON sale_lines(product_id);
     CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at);
     CREATE INDEX IF NOT EXISTS idx_sale_lines_sale ON sale_lines(sale_id);
     CREATE INDEX IF NOT EXISTS idx_returns_sale ON returns(sale_id);

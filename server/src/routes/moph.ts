@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { db } from "../db/index.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { getMophCheck, storeMophCheck } from "../services/mophCheckCache.js";
 import { MOPH_COLUMN_SPECS, MOPH_FILE_ROLES } from "../services/mophFields.js";
 import {
@@ -16,6 +16,7 @@ import {
 } from "../services/mophImport.js";
 
 const router = Router();
+router.use(requireAuth, requirePermission("catalog.import"));
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },

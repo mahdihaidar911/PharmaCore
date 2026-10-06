@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db, type SettingsRow } from "../db/index.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -36,7 +36,7 @@ router.get("/", requireAuth, (_req, res) => {
   return res.json(toProfile(row));
 });
 
-router.put("/", requireAuth, (req, res) => {
+router.put("/", requireAuth, requirePermission("settings.manage"), (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });

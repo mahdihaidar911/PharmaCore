@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "../db/index.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { logAudit } from "../services/audit.js";
+import { roundMoney } from "../services/errors.js";
 import { addToBatch } from "../services/stock.js";
 import { getSaleDetail } from "../services/saleDetail.js";
 
@@ -23,7 +24,7 @@ const returnSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-router.post("/", requireAuth, (req, res) => {
+router.post("/", requireAuth, requirePermission("returns.create"), (req, res) => {
   const parsed = returnSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -43,6 +44,12 @@ router.post("/", requireAuth, (req, res) => {
   if (!sale) {
     return res.status(404).json({ error: "Sale not found" });
   }
+
+  // Discounts are applied to the whole sale, so each line refunds its share of the discounted total.
+  const { subtotal } = db
+    .prepare("SELECT COALESCE(SUM(line_total_usd), 0) AS subtotal FROM sale_lines WHERE sale_id = ?")
+    .get(sale_id) as { subtotal: number };
+  const discountRatio = subtotal > 0 ? Math.min(1, sale.total_usd / subtotal) : 0;
 
   try {
     const returnId = db.transaction(() => {
@@ -85,7 +92,7 @@ router.post("/", requireAuth, (req, res) => {
           throw new Error(`Cannot return ${item.qty} units; only ${line.returnable_qty} returnable`);
         }
 
-        const lineRefundUsd = (line.line_total_usd / line.qty) * item.qty;
+        const lineRefundUsd = roundMoney((line.line_total_usd / line.qty) * item.qty * discountRatio);
         refundTotalUsd += lineRefundUsd;
 
         db.prepare(`

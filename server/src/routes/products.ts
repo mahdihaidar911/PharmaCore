@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db, type ProductRow } from "../db/index.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { parsePageQuery, paginatedResponse } from "../services/pagination.js";
 import {
   countSearchProducts,
@@ -35,7 +35,7 @@ function withStock(product: ProductRow) {
   };
 }
 
-router.get("/", requireAuth, (req, res) => {
+router.get("/", requireAuth, requirePermission("products.view"), (req, res) => {
   const search = normalizeSearchQuery(typeof req.query.search === "string" ? req.query.search : "");
   const activeOnly = req.query.active !== "false";
   const { page, pageSize, offset } = parsePageQuery(req.query as Record<string, unknown>);
@@ -75,7 +75,7 @@ router.get("/", requireAuth, (req, res) => {
   );
 });
 
-router.patch("/:id/barcode", requireAuth, (req, res) => {
+router.patch("/:id/barcode", requireAuth, requirePermission("products.link_barcode"), (req, res) => {
   const parsed = barcodePatchSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Barcode is required" });
@@ -115,7 +115,7 @@ router.patch("/:id/barcode", requireAuth, (req, res) => {
   }
 });
 
-router.get("/:id", requireAuth, (req, res) => {
+router.get("/:id", requireAuth, requirePermission("products.view"), (req, res) => {
   const product = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(req.params.id)) as ProductRow | undefined;
   if (!product) {
     return res.status(404).json({ error: "Product not found" });
@@ -123,7 +123,7 @@ router.get("/:id", requireAuth, (req, res) => {
   return res.json(withStock(product));
 });
 
-router.post("/", requireAuth, (req, res) => {
+router.post("/", requireAuth, requirePermission("products.manage"), (req, res) => {
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -149,7 +149,7 @@ router.post("/", requireAuth, (req, res) => {
   }
 });
 
-router.put("/:id", requireAuth, (req, res) => {
+router.put("/:id", requireAuth, requirePermission("products.manage"), (req, res) => {
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });

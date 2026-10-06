@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "../db/index.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { logAudit } from "../services/audit.js";
+import { BusinessError } from "../services/errors.js";
 import { parsePageQuery, paginatedResponse } from "../services/pagination.js";
+import { ADJUSTMENT_REASONS, adjustBatch } from "../services/stock.js";
 
 const router = Router();
 
@@ -23,7 +25,7 @@ const receiveSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
 });
 
-router.post("/receive", requireAuth, (req, res) => {
+router.post("/receive", requireAuth, requirePermission("inventory.receive"), (req, res) => {
   const parsed = receiveSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -99,7 +101,45 @@ router.post("/receive", requireAuth, (req, res) => {
   }
 });
 
-router.get("/batches", requireAuth, (req, res) => {
+const adjustSchema = z.object({
+  batch_id: z.number().int().positive(),
+  qty_change: z
+    .number()
+    .int()
+    .refine((n) => n !== 0, "Quantity change cannot be zero"),
+  reason: z.enum(ADJUSTMENT_REASONS),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+
+router.post("/adjust", requireAuth, requirePermission("inventory.adjust"), (req, res) => {
+  const parsed = adjustSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+  }
+  const { batch_id, qty_change, reason, notes } = parsed.data;
+  if (reason === "other" && !notes) {
+    return res.status(400).json({ error: "Please describe the reason in the notes" });
+  }
+
+  try {
+    const result = adjustBatch({ batchId: batch_id, qtyChange: qty_change, reason, notes: notes || null, userId: req.user!.userId });
+    logAudit({
+      userId: req.user!.userId,
+      action: "stock.adjusted",
+      entityType: "batch",
+      entityId: batch_id,
+      details: { qty_change, reason, notes: notes || null, new_qty: result.qty },
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof BusinessError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    throw error;
+  }
+});
+
+router.get("/batches", requireAuth, requirePermission("inventory.view"), (req, res) => {
   const productId = req.query.product_id ? Number(req.query.product_id) : null;
   const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
   const { page, pageSize, offset } = parsePageQuery(req.query as Record<string, unknown>);

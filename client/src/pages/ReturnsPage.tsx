@@ -41,19 +41,28 @@ export default function ReturnsPage() {
 
   function computeRefundUsd() {
     if (!sale) return 0;
-    return sale.lines.reduce((sum, line) => {
+    // Mirrors the server: a sale-level discount is shared proportionally across lines.
+    const subtotal = sale.lines.reduce((sum, line) => sum + line.line_total_usd, 0);
+    const ratio = subtotal > 0 ? Math.min(1, sale.sale.total_usd / subtotal) : 0;
+    const raw = sale.lines.reduce((sum, line) => {
       const qty = Number(returnQty[line.id]) || 0;
       if (qty <= 0) return sum;
-      return sum + (line.line_total_usd / line.qty) * qty;
+      return sum + Math.round((line.line_total_usd / line.qty) * qty * ratio * 100) / 100;
     }, 0);
+    return Math.round(raw * 100) / 100;
   }
 
   const expectedRefund = computeRefundUsd();
   const rate = sale?.sale.exchange_rate_used ?? sale?.settings.exchange_rate ?? 89500;
 
-  function fillRefund() {
-    setRefundUsd(expectedRefund.toFixed(2));
-    setRefundLbp(String(usdToLbp(expectedRefund, rate)));
+  function fillRefund(currency: "usd" | "lbp") {
+    if (currency === "usd") {
+      setRefundUsd(expectedRefund.toFixed(2));
+      setRefundLbp("0");
+    } else {
+      setRefundUsd("0");
+      setRefundLbp(String(usdToLbp(expectedRefund, rate)));
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -148,9 +157,14 @@ export default function ReturnsPage() {
             Expected refund: <strong>{formatUsd(expectedRefund)}</strong> ({formatLbp(usdToLbp(expectedRefund, rate))})
           </p>
 
-          <button type="button" onClick={fillRefund} className="mt-2 text-sm text-teal-700 hover:underline">
-            Fill refund amounts
-          </button>
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={() => fillRefund("usd")} className="btn btn-secondary btn-sm">
+              Refund all in USD
+            </button>
+            <button type="button" onClick={() => fillRefund("lbp")} className="btn btn-secondary btn-sm">
+              Refund all in LBP
+            </button>
+          </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-sm">

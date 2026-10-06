@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { getSaleDetail } from "../services/saleDetail.js";
 
 const router = Router();
 
-router.get("/", requireAuth, (req, res) => {
+router.get("/", requireAuth, requirePermission("sales.view"), (req, res) => {
   const date = typeof req.query.date === "string" ? req.query.date : null;
   const limit = Math.min(Number(req.query.limit) || 50, 200);
 
@@ -33,7 +33,7 @@ router.get("/", requireAuth, (req, res) => {
   return res.json(sales);
 });
 
-router.get("/:id", requireAuth, (req, res) => {
+router.get("/:id", requireAuth, requirePermission("sales.view"), (req, res) => {
   const saleId = Number(req.params.id);
   const sale = db.prepare("SELECT id FROM sales WHERE id = ?").get(saleId);
   if (!sale) {
