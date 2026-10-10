@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { PageShell, ScrollBox } from "../components/PageShell";
+import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
 import { Alert, Badge, Field } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
@@ -38,30 +38,30 @@ export default function AccountPage() {
   return (
     <PageShell title="My account" description="Your sign-in details and password.">
       <ScrollBox className="min-h-0 flex-1">
-        <div className="grid max-w-4xl gap-4 pb-2 lg:grid-cols-2">
-          <section className="card card-body">
-            <h3 className="card-title">Profile</h3>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Username</dt>
-                <dd className="font-medium">{user?.username}</dd>
+        <div className="grid max-w-4xl gap-x-10 gap-y-8 pb-2 lg:grid-cols-2">
+          <section>
+            <SectionHead title="Signed in as" />
+            <dl className="mt-1 text-sm">
+              <div className="flex justify-between gap-4 border-b border-rule py-2.5">
+                <dt className="text-ink-3">Username</dt>
+                <dd className="font-mono font-medium">{user?.username}</dd>
               </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Name</dt>
+              <div className="flex justify-between gap-4 border-b border-rule py-2.5">
+                <dt className="text-ink-3">Name</dt>
                 <dd className="font-medium">{user?.full_name || "—"}</dd>
               </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Role</dt>
+              <div className="flex justify-between gap-4 border-b border-rule py-2.5">
+                <dt className="text-ink-3">Role</dt>
                 <dd>
                   <Badge tone="brand">{user?.role}</Badge>
                 </dd>
               </div>
             </dl>
-            <p className="mt-4 text-xs text-slate-500">Only the owner can change names and roles, from the Users page.</p>
+            <p className="meta mt-3">Only the owner can change names and roles, from the Users page.</p>
           </section>
 
-          <form onSubmit={handleSubmit} className="card card-body space-y-4">
-            <h3 className="card-title">Change password</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <SectionHead title="Change password" />
             <Field label="Current password">
               <input type="password" className="input" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
             </Field>

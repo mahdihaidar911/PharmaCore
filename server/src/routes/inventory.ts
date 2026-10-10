@@ -143,6 +143,24 @@ router.post("/adjust", requireAuth, requirePermission("inventory.adjust"), (req,
   }
 });
 
+/** Whitelisted SQL fragments for the batch list; never interpolate request values directly. */
+const BATCH_EXPIRY_FILTERS = {
+  all: "",
+  expired: " AND sb.expiry_date < date('now', 'localtime')",
+  soon: " AND sb.expiry_date >= date('now', 'localtime') AND sb.expiry_date <= date('now', 'localtime', '+90 days')",
+} as const;
+
+const BATCH_SORTS = {
+  expiry: "sb.expiry_date ASC, p.name COLLATE NOCASE ASC",
+  name: "p.name COLLATE NOCASE ASC, sb.expiry_date ASC",
+  qty: "sb.qty DESC, sb.expiry_date ASC",
+  received: "sb.received_at DESC, sb.id DESC",
+} as const;
+
+function pickKey<T extends object>(table: T, value: unknown, fallback: keyof T): keyof T {
+  return typeof value === "string" && Object.hasOwn(table, value) ? (value as keyof T) : fallback;
+}
+
 router.get("/batches", requireAuth, requirePermission("inventory.view"), (req, res) => {
   const productId = req.query.product_id ? Number(req.query.product_id) : null;
   const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
@@ -171,6 +189,9 @@ router.get("/batches", requireAuth, requirePermission("inventory.view"), (req, r
       )`
     : "";
   const searchParams = search ? [search, search, search] : [];
+  const expiry = pickKey(BATCH_EXPIRY_FILTERS, req.query.expiry, "all");
+  const expiryClause = BATCH_EXPIRY_FILTERS[expiry];
+  const orderBy = BATCH_SORTS[pickKey(BATCH_SORTS, req.query.sort, "expiry")];
 
   const summary = db
     .prepare(
@@ -178,13 +199,15 @@ router.get("/batches", requireAuth, requirePermission("inventory.view"), (req, r
       SELECT
         COUNT(*) AS batch_count,
         COALESCE(SUM(sb.qty), 0) AS total_qty,
-        COUNT(DISTINCT sb.product_id) AS product_count
+        COUNT(DISTINCT sb.product_id) AS product_count,
+        COALESCE(SUM(CASE WHEN 1=1${BATCH_EXPIRY_FILTERS.expired} THEN 1 ELSE 0 END), 0) AS expired_batches,
+        COALESCE(SUM(CASE WHEN 1=1${BATCH_EXPIRY_FILTERS.soon} THEN 1 ELSE 0 END), 0) AS soon_batches
       FROM stock_batches sb
       JOIN products p ON p.id = sb.product_id
       WHERE sb.qty > 0${searchClause}
     `,
     )
-    .get(...searchParams) as { batch_count: number; total_qty: number; product_count: number };
+    .get(...searchParams) as { batch_count: number; total_qty: number; product_count: number; expired_batches: number; soon_batches: number };
 
   const { total } = db
     .prepare(
@@ -192,7 +215,7 @@ router.get("/batches", requireAuth, requirePermission("inventory.view"), (req, r
       SELECT COUNT(*) AS total
       FROM stock_batches sb
       JOIN products p ON p.id = sb.product_id
-      WHERE sb.qty > 0${searchClause}
+      WHERE sb.qty > 0${searchClause}${expiryClause}
     `,
     )
     .get(...searchParams) as { total: number };
@@ -203,8 +226,8 @@ router.get("/batches", requireAuth, requirePermission("inventory.view"), (req, r
       SELECT sb.*, p.name as product_name, p.barcode, p.sale_price_usd, p.moph_code
       FROM stock_batches sb
       JOIN products p ON p.id = sb.product_id
-      WHERE sb.qty > 0${searchClause}
-      ORDER BY sb.expiry_date ASC
+      WHERE sb.qty > 0${searchClause}${expiryClause}
+      ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
     `,
     )
@@ -216,6 +239,8 @@ router.get("/batches", requireAuth, requirePermission("inventory.view"), (req, r
       batch_count: summary.batch_count,
       total_qty: summary.total_qty,
       product_count: summary.product_count,
+      expired_batches: summary.expired_batches,
+      soon_batches: summary.soon_batches,
     },
   });
 });

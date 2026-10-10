@@ -82,15 +82,15 @@ export default function SettingsPage() {
           </Field>
 
           {canManage ? (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-ink-2">
               Receipt header (pharmacy name, pharmacist, licences):{" "}
-              <Link to="/profile" className="font-medium text-brand-700 underline">
+              <Link to="/profile" className="font-medium text-forest-800 underline">
                 Pharmacy profile
               </Link>
             </p>
           ) : null}
 
-          {updatedAt ? <p className="text-xs text-slate-500">Last updated: {parseServerDate(updatedAt).toLocaleString()}</p> : null}
+          {updatedAt ? <p className="text-xs text-ink-3">Last updated: {parseServerDate(updatedAt).toLocaleString()}</p> : null}
           {error ? <Alert tone="error">{error}</Alert> : null}
           {message ? <Alert tone="success">{message}</Alert> : null}
 

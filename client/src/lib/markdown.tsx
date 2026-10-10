@@ -44,7 +44,7 @@ export function SimpleMarkdown({ text }: { text: string }) {
     const heading = /^#{1,4}\s+(.*)$/.exec(line);
     if (heading) {
       blocks.push(
-        <h4 key={`h${blocks.length}`} className="pt-1 font-semibold text-slate-900">
+        <h4 key={`h${blocks.length}`} className="pt-1 font-semibold text-ink">
           {inline(heading[1], `h${blocks.length}`)}
         </h4>,
       );

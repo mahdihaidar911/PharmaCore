@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, type PharmacyProfile } from "../lib/api";
-import { PageShell, ScrollBox } from "../components/PageShell";
+import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
+import { Alert } from "../components/ui";
 import { useSettings } from "../context/SettingsContext";
+import { api, type PharmacyProfile } from "../lib/api";
 
 const emptyProfile: PharmacyProfile = {
   name: "",
@@ -20,6 +21,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState<PharmacyProfile>(emptyProfile);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api
@@ -32,7 +34,7 @@ export default function ProfilePage() {
     event.preventDefault();
     setMessage("");
     setError("");
-
+    setSaving(true);
     try {
       await api.updateProfile({
         name: form.name.trim(),
@@ -49,57 +51,46 @@ export default function ProfilePage() {
       setMessage("Pharmacy profile saved. Receipts will use these details.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save profile");
+    } finally {
+      setSaving(false);
     }
   }
 
+  const set = (key: keyof PharmacyProfile) => (v: string) => setForm({ ...form, [key]: v });
+
   return (
-    <PageShell
-      title="Pharmacy profile"
-      description="Official pharmacy details printed on every receipt (English left, Arabic right)."
-    >
-      <ScrollBox className="mx-auto min-h-0 w-full max-w-2xl flex-1">
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 pb-6">
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">Pharmacy name</h3>
-            <Field
-              label="English (receipt header left)"
-              value={form.name}
-              onChange={(v) => setForm({ ...form, name: v })}
-              required
-            />
-            <Field
-              label="Arabic (receipt header right)"
-              value={form.name_ar}
-              onChange={(v) => setForm({ ...form, name_ar: v })}
-              dir="rtl"
-            />
+    <PageShell title="Pharmacy profile" description="Official details printed on every receipt — English on the left, Arabic on the right.">
+      <ScrollBox className="min-h-0 flex-1">
+        <form onSubmit={handleSubmit} className="max-w-2xl space-y-6 pb-4">
+          <section>
+            <SectionHead title="Pharmacy name" />
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <TextField label="English (receipt header, left)" value={form.name} onChange={set("name")} required />
+              <TextField label="Arabic (receipt header, right)" value={form.name_ar} onChange={set("name_ar")} dir="rtl" />
+            </div>
           </section>
 
-          <section className="space-y-3 border-t border-slate-100 pt-4">
-            <h3 className="text-sm font-semibold text-slate-900">Receipt details</h3>
-            <p className="text-xs text-slate-500">Each line prints as one row — English on the left, Arabic on the right.</p>
-            <Field
-              label="Pharmacist"
-              value={form.pharmacist_name}
-              onChange={(v) => setForm({ ...form, pharmacist_name: v })}
-            />
-            <Field label="Licence No" value={form.license_no} onChange={(v) => setForm({ ...form, license_no: v })} />
-            <Field
-              label="Order Reg. No"
-              value={form.order_reg_no}
-              onChange={(v) => setForm({ ...form, order_reg_no: v })}
-            />
-            <Field label="CNSS No" value={form.cnss_no} onChange={(v) => setForm({ ...form, cnss_no: v })} />
-            <Field label="Location" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
-            <Field label="Tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-            <Field label="VAT #" value={form.vat_no} onChange={(v) => setForm({ ...form, vat_no: v })} />
+          <section>
+            <SectionHead title="Receipt details" />
+            <p className="meta mt-1 mb-2">Each field prints as one line on the receipt.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField label="Pharmacist" value={form.pharmacist_name} onChange={set("pharmacist_name")} />
+              <TextField label="Licence No" value={form.license_no} onChange={set("license_no")} mono />
+              <TextField label="Order Reg. No" value={form.order_reg_no} onChange={set("order_reg_no")} mono />
+              <TextField label="CNSS No" value={form.cnss_no} onChange={set("cnss_no")} mono />
+              <TextField label="VAT #" value={form.vat_no} onChange={set("vat_no")} mono />
+              <TextField label="Tel" value={form.phone} onChange={set("phone")} mono />
+              <div className="sm:col-span-2">
+                <TextField label="Location" value={form.location} onChange={set("location")} />
+              </div>
+            </div>
           </section>
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {message ? <p className="text-sm text-teal-700">{message}</p> : null}
+          {error ? <Alert tone="error">{error}</Alert> : null}
+          {message ? <Alert tone="success">{message}</Alert> : null}
 
-          <button type="submit" className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white">
-            Save profile
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? "Saving…" : "Save profile"}
           </button>
         </form>
       </ScrollBox>
@@ -107,30 +98,25 @@ export default function ProfilePage() {
   );
 }
 
-function Field({
+function TextField({
   label,
   value,
   onChange,
   required = false,
   dir,
+  mono = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
   dir?: "rtl";
+  mono?: boolean;
 }) {
   return (
-    <label className="block text-sm font-medium text-slate-700">
-      {label}
-      <input
-        type="text"
-        required={required}
-        dir={dir}
-        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <input type="text" required={required} dir={dir} className={`input ${mono ? "font-mono" : ""}`} value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
 }

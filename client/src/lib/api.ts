@@ -77,8 +77,13 @@ export type BatchListResult = Paginated<StockBatch> & {
     batch_count: number;
     total_qty: number;
     product_count: number;
+    expired_batches: number;
+    soon_batches: number;
   };
 };
+
+export type BatchExpiryFilter = "all" | "soon" | "expired";
+export type BatchSort = "expiry" | "name" | "qty" | "received";
 
 export type Role = "owner" | "pharmacist" | "cashier";
 
@@ -304,6 +309,8 @@ export type CartItem = {
   qty: number;
   unit_price_usd: number;
   sale_price_usd: number;
+  /** Sellable stock when the line was added; the server re-checks at checkout. */
+  stock?: number;
 };
 
 /** Sales fields are null when the user's role cannot see revenue. */
@@ -667,9 +674,11 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
-  getBatches(options?: { search?: string; page?: number; pageSize?: number; product_id?: number }) {
+  getBatches(options?: { search?: string; page?: number; pageSize?: number; product_id?: number; expiry?: BatchExpiryFilter; sort?: BatchSort }) {
     const params = new URLSearchParams();
     if (options?.search?.trim()) params.set("search", options.search.trim());
+    if (options?.expiry && options.expiry !== "all") params.set("expiry", options.expiry);
+    if (options?.sort && options.sort !== "expiry") params.set("sort", options.sort);
     if (options?.page) params.set("page", String(options.page));
     if (options?.pageSize) params.set("pageSize", String(options.pageSize));
     if (options?.product_id) params.set("product_id", String(options.product_id));

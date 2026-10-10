@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { api, formatUsd, localToday, type BusinessAnalysis, type BusinessHighlight } from "../../lib/api";
 import { SimpleMarkdown } from "../../lib/markdown";
-import { Alert, Badge, Spinner, StatCard } from "../ui";
+import { SectionHead } from "../PageShell";
+import { Alert, Badge, FigureRow, Spinner, StatCard } from "../ui";
 import { Icon } from "../icons";
 
 const PRESETS = [
@@ -52,10 +53,10 @@ export function AnalyzePanel() {
       <div className="card card-body flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="card-title">Business briefing</p>
-          <p className="text-sm text-slate-500">Figures are computed from PharmaCore. If an AI model is configured, it writes a short summary of them.</p>
+          <p className="text-sm text-ink-3">Figures are computed from PharmaCore. If an AI model is configured, it writes a short summary of them.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg bg-slate-100 p-1">
+          <div className="segmented">
             {PRESETS.map((p) => (
               <button key={p.id} type="button" className={`tab ${preset === p.id ? "tab-active" : ""}`} onClick={() => setPreset(p.id)}>
                 {p.label}
@@ -74,11 +75,11 @@ export function AnalyzePanel() {
 
       {result ? (
         <>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-3">
             Period {result.period.from} → {result.period.to}
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <FigureRow>
             {sales ? (
               <>
                 <StatCard label="Net revenue" value={formatUsd(sales.current.net_revenue_usd)} hint={change(sales.change_percent.net_revenue_usd)} />
@@ -96,11 +97,11 @@ export function AnalyzePanel() {
                 />
               </>
             ) : null}
-          </div>
+          </FigureRow>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <section className="card card-body space-y-2">
-              <h3 className="card-title">Highlights</h3>
+          <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
+            <section className="space-y-2">
+              <SectionHead title="Highlights" count={result.highlights.length} />
               {result.highlights.map((h, i) => (
                 <Alert key={i} tone={SEVERITY_STYLE[h.severity].tone} title={h.title}>
                   {h.detail}
@@ -108,12 +109,9 @@ export function AnalyzePanel() {
               ))}
             </section>
 
-            <section className="card card-body">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="card-title">AI summary</h3>
-                {result.ai_used ? <Badge tone="brand">Written by AI from the figures shown</Badge> : null}
-              </div>
-              <div className="mt-3">
+            <section>
+              <SectionHead title="AI summary" action={result.ai_used ? <Badge tone="brand">Written by AI from the figures shown</Badge> : undefined} />
+              <div className="mt-2">
                 {result.narrative ? (
                   <SimpleMarkdown text={result.narrative} />
                 ) : result.ai_error ? (
@@ -121,7 +119,7 @@ export function AnalyzePanel() {
                     {result.ai_error} The highlights on the left are still accurate.
                   </Alert>
                 ) : (
-                  <p className="text-sm text-slate-500">No AI model is configured, so only the computed highlights are shown.</p>
+                  <p className="text-sm text-ink-3">No AI model is configured, so only the computed highlights are shown.</p>
                 )}
               </div>
             </section>

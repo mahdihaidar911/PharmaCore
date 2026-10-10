@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Pagination } from "../components/Pagination";
-import { PageShell, Panel, ScrollBox } from "../components/PageShell";
 import { AdjustStockModal } from "../components/AdjustStockModal";
-import { Alert } from "../components/ui";
+import { Icon } from "../components/icons";
+import { PageShell, ScrollBox } from "../components/PageShell";
+import { Pagination } from "../components/Pagination";
+import { ProductName } from "../components/ProductName";
+import { Alert, EmptyState, SearchInput, Spinner, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { api, formatUsd, parseServerDate, type StockBatch } from "../lib/api";
+import { api, formatUsd, parseServerDate, type BatchExpiryFilter, type BatchListResult, type BatchSort, type StockBatch } from "../lib/api";
+import { daysUntil, expiryStatus } from "../lib/expiry";
 
 const PAGE_SIZE = 50;
+
+const SORTS: { value: BatchSort; label: string }[] = [
+  { value: "expiry", label: "Earliest expiry" },
+  { value: "name", label: "Product A–Z" },
+  { value: "qty", label: "Largest quantity" },
+  { value: "received", label: "Recently received" },
+];
+
+const EMPTY_SUMMARY: BatchListResult["summary"] = { batch_count: 0, total_qty: 0, product_count: 0, expired_batches: 0, soon_batches: 0 };
 
 export default function InventoryPage() {
   const location = useLocation();
@@ -15,153 +27,161 @@ export default function InventoryPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [summary, setSummary] = useState({ batch_count: 0, total_qty: 0, product_count: 0 });
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [search, setSearch] = useState("");
+  const [expiry, setExpiry] = useState<BatchExpiryFilter>("all");
+  const [sort, setSort] = useState<BatchSort>("expiry");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [adjusting, setAdjusting] = useState<StockBatch | null>(null);
   const canAdjust = useAuth().can("inventory.adjust");
 
-  const loadBatches = useCallback(
-    async (query = search, pageNum = page) => {
-      setLoading(true);
-      try {
-        const result = await api.getBatches({ search: query, page: pageNum, pageSize: PAGE_SIZE });
-        setBatches(result.items);
-        setTotal(result.total);
-        setPage(result.page);
-        setTotalPages(result.totalPages);
-        setSummary(result.summary);
-        setError("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load inventory");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [search, page],
-  );
+  const loadBatches = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await api.getBatches({ search, page, pageSize: PAGE_SIZE, expiry, sort });
+      setBatches(result.items);
+      setTotal(result.total);
+      setPage(result.page);
+      setTotalPages(result.totalPages);
+      setSummary(result.summary);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load inventory");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, page, expiry, sort]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadBatches(search, page);
-    }, 250);
+    const timer = setTimeout(() => void loadBatches(), 250);
     return () => clearTimeout(timer);
-  }, [search, page, location.pathname, loadBatches]);
+  }, [loadBatches, location.pathname]);
+
+  const filters: { value: BatchExpiryFilter; label: string; count: number }[] = [
+    { value: "all", label: "All batches", count: summary.batch_count },
+    { value: "soon", label: "Expiring ≤ 90 days", count: summary.soon_batches },
+    { value: "expired", label: "Expired", count: summary.expired_batches },
+  ];
 
   return (
     <PageShell
       title="Inventory"
-      description="Active batches sorted by expiry (FEFO-ready for POS)."
+      description="Stock on hand, batch by batch. The till always sells the earliest-expiring sellable batch first."
       actions={
-        <button
-          type="button"
-          onClick={() => loadBatches()}
-          className="btn btn-secondary"
-        >
-          Refresh
-        </button>
+        <p className="text-dense text-ink-2">
+          <span className="font-medium text-ink">{summary.total_qty.toLocaleString()}</span> units ·{" "}
+          <span className="font-medium text-ink">{summary.product_count.toLocaleString()}</span> products ·{" "}
+          <span className="font-medium text-ink">{summary.batch_count.toLocaleString()}</span> batches
+        </p>
       }
     >
-      {error ? <Alert tone="error">{error}</Alert> : null}
-      {notice ? <Alert tone="success">{notice}</Alert> : null}
+      {error ? <Alert tone="error" className="mb-3">{error}</Alert> : null}
+      {notice ? <Alert tone="success" className="mb-3">{notice}</Alert> : null}
 
-      <Panel className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <ul className="flex flex-wrap gap-4 text-sm text-slate-600">
-            <li>
-              <span className="text-slate-500">Batches</span>{" "}
-              <strong className="text-slate-900">{summary.batch_count.toLocaleString()}</strong>
-            </li>
-            <li>
-              <span className="text-slate-500">Units in stock</span>{" "}
-              <strong className="text-slate-900">{summary.total_qty.toLocaleString()}</strong>
-            </li>
-            <li>
-              <span className="text-slate-500">Products with stock</span>{" "}
-              <strong className="text-slate-900">{summary.product_count.toLocaleString()}</strong>
-            </li>
-          </ul>
-          <input
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Search product, barcode, MoPH code…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
+      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+        <SearchInput
+          label="Search inventory"
+          className="w-full sm:w-72"
+          placeholder="Product, barcode or MoPH code"
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+          }}
+        />
+        <div className="segmented" role="group" aria-label="Filter by expiry">
+          {filters.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              aria-pressed={expiry === f.value}
+              className={`tab ${expiry === f.value ? "tab-active" : ""}`}
+              onClick={() => {
+                setExpiry(f.value);
+                setPage(1);
+              }}
+            >
+              {f.label} <span className="ml-1 font-mono text-xs opacity-80">{f.count}</span>
+            </button>
+          ))}
         </div>
+        <label className="ml-auto flex items-center gap-2 text-dense text-ink-2">
+          Sort
+          <select className="input min-h-8 w-auto py-1 text-dense" value={sort} onChange={(e) => (setSort(e.target.value as BatchSort), setPage(1))}>
+            {SORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" onClick={() => void loadBatches()} className="btn btn-ghost btn-sm btn-icon" aria-label="Refresh" title="Refresh">
+          <Icon name="refresh" className="h-4 w-4" />
+        </button>
+      </div>
 
-        <Panel padding={false} className="min-h-0 flex-1">
-          <ScrollBox className="h-full min-h-0">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Product</th>
-                  <th className="px-4 py-3 font-medium">MoPH code</th>
-                  <th className="px-4 py-3 font-medium">Barcode</th>
-                  <th className="px-4 py-3 font-medium">Qty</th>
-                  <th className="px-4 py-3 font-medium">Expiry</th>
-                  <th className="px-4 py-3 font-medium">Sale price</th>
-                  <th className="px-4 py-3 font-medium">Received</th>
-                  {canAdjust ? <th className="px-4 py-3 font-medium" /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {batches.map((batch) => {
-                  const daysToExpiry = Math.ceil(
-                    (new Date(batch.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-                  );
-                  const expiryClass =
-                    daysToExpiry <= 30
-                      ? "text-red-600 font-medium"
-                      : daysToExpiry <= 90
-                        ? "text-amber-600"
-                        : "text-slate-700";
-
-                  return (
-                    <tr key={batch.id} className="border-b border-slate-100">
-                      <td className="px-4 py-3 font-medium text-slate-900">{batch.product_name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{batch.moph_code ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-600">{batch.barcode ?? "—"}</td>
-                      <td className="px-4 py-3">{batch.qty}</td>
-                      <td className={`px-4 py-3 ${expiryClass}`}>
-                        {batch.expiry_date}
-                        <span className="ml-2 text-xs">({daysToExpiry}d)</span>
+      <div className="sheet flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ScrollBox className={`min-h-0 flex-1 ${loading ? "opacity-60" : ""}`}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th className="hidden md:table-cell">MoPH</th>
+                <th className="hidden lg:table-cell">Barcode</th>
+                <th className="num">Qty</th>
+                <th>Expiry</th>
+                <th className="num hidden sm:table-cell">Price</th>
+                <th className="hidden lg:table-cell">Received</th>
+                {canAdjust ? (
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                ) : null}
+              </tr>
+            </thead>
+            <tbody>
+              {batches.map((batch) => {
+                const st = expiryStatus(daysUntil(batch.expiry_date));
+                return (
+                  <tr key={batch.id}>
+                    <td className="w-full max-w-0 min-w-56">
+                      <ProductName name={batch.product_name} />
+                    </td>
+                    <td className="code hidden text-ink-2 md:table-cell">{batch.moph_code ?? "—"}</td>
+                    <td className="code hidden text-ink-2 lg:table-cell">{batch.barcode ?? "—"}</td>
+                    <td className="num font-medium">{batch.qty}</td>
+                    <td className="whitespace-nowrap">
+                      <span className="code mr-2 text-ink">{batch.expiry_date}</span>
+                      <Status tone={st.tone} icon={st.tone === "muted" ? null : undefined} className="text-xs">
+                        {st.label}
+                      </Status>
+                    </td>
+                    <td className="num hidden sm:table-cell">{formatUsd(batch.sale_price_usd)}</td>
+                    <td className="code hidden whitespace-nowrap text-ink-3 lg:table-cell">{parseServerDate(batch.received_at).toLocaleDateString("en-CA")}</td>
+                    {canAdjust ? (
+                      <td className="text-right">
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdjusting(batch)}>
+                          Adjust
+                        </button>
                       </td>
-                      <td className="px-4 py-3">{formatUsd(batch.sale_price_usd)}</td>
-                      <td className="px-4 py-3 text-slate-600">{parseServerDate(batch.received_at).toLocaleDateString()}</td>
-                      {canAdjust ? (
-                        <td className="px-4 py-2 text-right">
-                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdjusting(batch)}>
-                            Adjust
-                          </button>
-                        </td>
-                      ) : null}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {batches.length === 0 && !loading ? (
-              <p className="px-4 py-6 text-sm text-slate-500">No stock batches yet.</p>
-            ) : null}
-            {loading ? <p className="px-4 py-6 text-sm text-slate-500">Loading…</p> : null}
-          </ScrollBox>
-          <div className="px-4 pb-4">
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              total={total}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
-              disabled={loading}
+                    ) : null}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {batches.length === 0 && !loading ? (
+            <EmptyState
+              title={search || expiry !== "all" ? "No batches match these filters." : "No stock yet."}
+              description={search || expiry !== "all" ? "Clear the search or choose “All batches”." : "Batches appear here after you receive stock."}
             />
-          </div>
-        </Panel>
-      </Panel>
+          ) : null}
+          {loading && batches.length === 0 ? <Spinner className="p-4" /> : null}
+        </ScrollBox>
+        <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} disabled={loading} />
+      </div>
 
       {adjusting ? (
         <AdjustStockModal

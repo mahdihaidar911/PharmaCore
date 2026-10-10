@@ -1,17 +1,17 @@
 import { FormEvent, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Link } from "react-router-dom";
 import { Icon } from "../components/icons";
 import { LinkBarcodePanel } from "../components/LinkBarcodePanel";
-import { PageShell, ScrollBox } from "../components/PageShell";
-import { printReceipt } from "../components/Receipt";
-import { Alert, ConfirmDialog, EmptyState, Field, Modal } from "../components/ui";
+import { BillPanel, type PaymentMethod } from "../components/pos/BillPanel";
+import { CartLines } from "../components/pos/CartLines";
+import { ScanResults } from "../components/pos/ScanResults";
+import Receipt, { printReceipt } from "../components/Receipt";
+import { ConfirmDialog, EmptyState, Field, Modal, Alert, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { isExactBarcodeMatch, looksLikeBarcodeScan, normalizeScan } from "../lib/barcode";
 import {
   api,
   ApiError,
-  formatLbp,
   formatUsd,
   parseServerDate,
   usdToLbp,
@@ -21,9 +21,14 @@ import {
   type SaleDetail,
 } from "../lib/api";
 import { computeChange } from "../lib/payment";
+import { notifyDrawerChanged } from "../lib/shellEvents";
+import { splitProductName } from "../lib/productName";
+
+const isTypingTarget = (el: Element | null) => Boolean(el?.closest("input, select, textarea, [data-pos-link-panel], [role='dialog']"));
 
 export default function POSPage() {
   const searchRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const searchSeq = useRef(0);
   const scanIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingScan = useRef(false);
@@ -31,14 +36,18 @@ export default function POSPage() {
   const { can } = useAuth();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosProduct[]>([]);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [lastAddedId, setLastAddedId] = useState<number | null>(null);
   const [discountUsd, setDiscountUsd] = useState("0");
   const [paidUsd, setPaidUsd] = useState("");
   const [paidLbp, setPaidLbp] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "mixed">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [searchError, setSearchError] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
   const [lastSale, setLastSale] = useState<SaleDetail | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [scanHint, setScanHint] = useState("");
   const [pendingBarcode, setPendingBarcode] = useState<string | null>(null);
@@ -49,6 +58,8 @@ export default function POSPage() {
   const [heldListOpen, setHeldListOpen] = useState(false);
   const [heldError, setHeldError] = useState("");
   const [discardId, setDiscardId] = useState<number | null>(null);
+
+  const focusSearch = useCallback(() => requestAnimationFrame(() => searchRef.current?.focus()), []);
 
   const refreshHeld = useCallback(() => {
     api.listHeldCarts().then(setHeld).catch(() => setHeld([]));
@@ -78,6 +89,7 @@ export default function POSPage() {
       const found = await api.searchPos(trimmed);
       if (seq !== searchSeq.current) return;
       setResults(found);
+      setActiveIndex(-1);
       setSearchError(found.length === 0 ? `No product found for "${trimmed}".` : "");
     } catch (err) {
       if (seq !== searchSeq.current) return;
@@ -94,6 +106,7 @@ export default function POSPage() {
           total_qty: p.total_qty,
         }));
         setResults(mapped);
+        setActiveIndex(-1);
         setSearchError(mapped.length === 0 ? `No product found for "${trimmed}".` : "");
       } catch {
         if (seq !== searchSeq.current) return;
@@ -133,6 +146,7 @@ export default function POSPage() {
   const change = computeChange(totalUsd, paidUsdNum, paidLbpNum, rate);
   const insufficient =
     cart.length > 0 && (paidUsdNum > 0 || paidLbpNum > 0) && paidEquivalent + 0.02 < totalUsd;
+  const unitCount = cart.reduce((n, i) => n + i.qty, 0);
 
   function addToCart(product: PosProduct, qty = 1) {
     if (product.total_qty < qty) {
@@ -147,7 +161,7 @@ export default function POSPage() {
       const existing = prev.find((item) => item.product_id === product.id);
       if (existing) {
         return prev.map((item) =>
-          item.product_id === product.id ? { ...item, qty: item.qty + qty } : item,
+          item.product_id === product.id ? { ...item, qty: item.qty + qty, stock: product.total_qty } : item,
         );
       }
       return [
@@ -159,13 +173,16 @@ export default function POSPage() {
           qty,
           unit_price_usd: product.sale_price_usd,
           sale_price_usd: product.sale_price_usd,
+          stock: product.total_qty,
         },
       ];
     });
+    setLastAddedId(product.id);
     setQuery("");
     setResults([]);
+    setActiveIndex(-1);
     setPendingBarcode(null);
-    requestAnimationFrame(() => searchRef.current?.focus());
+    focusSearch();
   }
 
   function handleBarcodeLinked(product: PosProduct) {
@@ -173,10 +190,10 @@ export default function POSPage() {
     setSearchError("");
     if (product.total_qty > 0) {
       addToCart(product);
-      setScanHint(`Linked & added: ${product.name}`);
+      setScanHint(`Linked and added: ${product.name}`);
     } else {
       setScanHint(`Barcode saved for ${product.name}. Receive stock before selling.`);
-      requestAnimationFrame(() => searchRef.current?.focus());
+      focusSearch();
     }
   }
 
@@ -263,12 +280,43 @@ export default function POSPage() {
     }
   }, []);
 
+  function moveActive(step: number) {
+    if (results.length === 0) return;
+    setActiveIndex((i) => {
+      let next = i;
+      for (let n = 0; n < results.length; n++) {
+        next = (next + step + results.length) % results.length;
+        if (results[next].total_qty > 0) return next;
+      }
+      return i;
+    });
+  }
+
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      moveActive(event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setQuery("");
+      setResults([]);
+      setActiveIndex(-1);
+      setSearchError("");
+      return;
+    }
     if (event.key !== "Enter" && event.key !== "Tab") return;
     event.preventDefault();
     if (scanIdleRef.current) {
       clearTimeout(scanIdleRef.current);
       scanIdleRef.current = null;
+    }
+    const picked = activeIndex >= 0 ? results[activeIndex] : undefined;
+    if (picked && picked.total_qty > 0) {
+      addToCart(picked);
+      setScanHint(`Added: ${picked.name}`);
+      return;
     }
     void submitScan(event.currentTarget.value);
   }
@@ -298,6 +346,7 @@ export default function POSPage() {
   }
 
   function fillExactPayment(method: "usd" | "lbp") {
+    if (cart.length === 0) return;
     setCheckoutError("");
     if (method === "usd") {
       setPaidUsd(totalUsd.toFixed(2));
@@ -346,21 +395,25 @@ export default function POSPage() {
 
       setLastSale(detail);
       setCart([]);
+      setLastAddedId(null);
       setDiscountUsd("0");
       setPaidUsd("");
       setPaidLbp("");
       setSearchError("");
       printReceipt(detail);
-      requestAnimationFrame(() => searchRef.current?.focus());
+      focusSearch();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Checkout failed";
-      if (err instanceof ApiError && err.status === 409) setDrawerOpen(false);
+      if (err instanceof ApiError && err.status === 409) {
+        setDrawerOpen(false);
+        notifyDrawerChanged();
+      }
       if (message === "Not found") {
         setCheckoutError(
           "Checkout API not available. Close every terminal, open a new one in PharmaCore folder, run: npm run dev",
         );
       } else if (message.includes("Insufficient payment") || message.includes("Payment mismatch")) {
-        setCheckoutError(`${message} Click "Pay USD" or "Pay LBP" to match the total.`);
+        setCheckoutError(`${message} Use “Exact” (F7 / F8) to match the total.`);
       } else {
         setCheckoutError(message);
       }
@@ -386,12 +439,13 @@ export default function POSPage() {
         discount_usd: discount,
       });
       setCart([]);
+      setLastAddedId(null);
       resetPayment();
       setHoldLabel("");
       setHoldOpen(false);
       setScanHint("Sale put on hold. Resume it from “Held sales”.");
       refreshHeld();
-      requestAnimationFrame(() => searchRef.current?.focus());
+      focusSearch();
     } catch (err) {
       setHeldError(err instanceof Error ? err.message : "Could not hold the sale");
     }
@@ -418,16 +472,18 @@ export default function POSPage() {
             qty,
             unit_price_usd: item.sale_price_usd,
             sale_price_usd: item.sale_price_usd,
+            stock: item.total_qty,
           });
         }
       }
       setCart(items);
+      setLastAddedId(null);
       resetPayment();
       if (canDiscount && resumed.discount_usd > 0) setDiscountUsd(String(resumed.discount_usd));
       setHeldListOpen(false);
       setScanHint(`Resumed${resumed.label ? ` “${resumed.label}”` : ""}.${notes.length ? ` ${notes.join("; ")}.` : ""}`);
       refreshHeld();
-      requestAnimationFrame(() => searchRef.current?.focus());
+      focusSearch();
     } catch (err) {
       setHeldError(err instanceof Error ? err.message : "Could not resume the sale");
       refreshHeld();
@@ -446,54 +502,132 @@ export default function POSPage() {
     }
   }
 
-  const showSearchError = Boolean(searchError) && normalizeScan(query).length > 0;
+  function openHold() {
+    if (cart.length === 0) return;
+    setHeldError("");
+    setHoldOpen(true);
+  }
+
+  function closeHold() {
+    setHoldOpen(false);
+    focusSearch();
+  }
+
+  function openHeldList() {
+    setHeldError("");
+    refreshHeld();
+    setHeldListOpen(true);
+  }
+
+  // Till shortcuts. A ref keeps one listener while always calling the latest handlers.
+  const shortcutRef = useRef<(e: globalThis.KeyboardEvent) => void>(() => {});
+  shortcutRef.current = (e) => {
+    if (document.querySelector('[role="dialog"]')) return;
+    if (e.ctrlKey && e.key === "Enter") {
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+      return;
+    }
+    const actions: Record<string, () => void> = {
+      F2: () => {
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      },
+      F3: openHeldList,
+      F4: openHold,
+      F7: () => fillExactPayment("usd"),
+      F8: () => fillExactPayment("lbp"),
+    };
+    const action = actions[e.key];
+    if (action) {
+      e.preventDefault();
+      action();
+    }
+  };
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => shortcutRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const showSearchError = Boolean(searchError) && (normalizeScan(query).length > 0 || !results.length);
+  const showResults = results.length > 0 && !pendingBarcode;
 
   return (
-    <PageShell
-      title="POS"
-      description="Scan to sell. Unknown barcode? Search the catalog to link it, or add a new product — barcodes build up as you work."
-    >
-      <div className="grid min-h-0 flex-1 gap-4 overflow-auto lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="flex min-h-0 flex-col gap-3 overflow-hidden">
-          {drawerOpen === false ? (
-            <Alert tone="warning" title="The cash drawer is closed">
-              Open a shift before completing sales.{" "}
-              <Link to="/cash" className="font-medium underline">
-                Go to Cash drawer
-              </Link>
-            </Alert>
-          ) : null}
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-teal-800">Scan here (keyboard scanner)</span>
-            <input
-              ref={searchRef}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              disabled={Boolean(pendingBarcode)}
-              className={`w-full rounded-xl border-2 bg-white px-4 py-3 text-lg shadow-sm ${
-                pendingBarcode
-                  ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                  : "border-teal-500 focus:border-teal-600 focus:ring-2 focus:ring-teal-200"
-              }`}
-              placeholder={
-                pendingBarcode ? "Link barcode below first…" : "Scan barcode or search name…"
-              }
-              value={query}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              onBlur={() => {
-                if (pendingBarcode) return;
-                requestAnimationFrame(() => {
-                  const active = document.activeElement;
-                  if (active?.closest("[data-pos-link-panel]")) return;
-                  if (active?.closest("form")) return;
-                  if (active?.closest('[role="dialog"]')) return;
-                  searchRef.current?.focus();
-                });
-              }}
-            />
-          </label>
+    <div className="flex h-full min-h-0 flex-col">
+      <h1 className="sr-only">Point of sale</h1>
+      <div className="grid min-h-0 flex-1 gap-5 overflow-auto lg:grid-cols-[minmax(0,1fr)_340px] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="flex min-h-0 flex-col gap-3" aria-label="Current sale">
+          <div className="relative shrink-0">
+            <div className="mb-1.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+              <label htmlFor="pos-scan" className="kicker">
+                Scan or search
+              </label>
+              {pendingBarcode ? null : searchFocused ? (
+                <Status tone="ok" icon="barcode" className="text-xs">
+                  Scanner ready
+                </Status>
+              ) : (
+                <button type="button" className="status status-caution text-xs hover:underline" onClick={() => searchRef.current?.focus()}>
+                  <Icon name="barcode" className="h-3.5 w-3.5" /> Click here or press <span className="kbd">F2</span> before scanning
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <Icon name="search" className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-ink-3" />
+              <input
+                id="pos-scan"
+                ref={searchRef}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                disabled={Boolean(pendingBarcode)}
+                role="combobox"
+                aria-expanded={showResults}
+                aria-controls="pos-results"
+                aria-activedescendant={activeIndex >= 0 && results[activeIndex] ? `pos-result-${results[activeIndex].id}` : undefined}
+                className="input input-lg border-2 border-ink pl-12 focus:shadow-[0_0_0_4px_var(--color-lime-300)] lg:pr-64"
+                placeholder={pendingBarcode ? "Link the scanned barcode below first…" : "Scan a barcode, or type a product name"}
+                value={query}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => {
+                  setSearchFocused(false);
+                  if (pendingBarcode) return;
+                  requestAnimationFrame(() => {
+                    if (isTypingTarget(document.activeElement)) return;
+                    searchRef.current?.focus();
+                  });
+                }}
+              />
+              <span className="pointer-events-none absolute top-1/2 right-4 hidden -translate-y-1/2 text-xs text-ink-3 lg:block">
+                <span className="kbd">↑</span> <span className="kbd">↓</span> choose · <span className="kbd">Enter</span> add · <span className="kbd">Esc</span> clear
+              </span>
+            </div>
+            {showResults ? (
+              <ScanResults
+                results={results}
+                activeIndex={activeIndex}
+                rate={rate}
+                onPick={(p) => {
+                  addToCart(p);
+                  setScanHint(`Added: ${p.name}`);
+                }}
+                onHover={setActiveIndex}
+              />
+            ) : null}
+          </div>
+
+          <div className="min-h-5 shrink-0 text-dense" aria-live="polite">
+            {showSearchError && !pendingBarcode ? (
+              <Status tone="caution" icon="alert">
+                {searchError}
+              </Status>
+            ) : scanHint ? (
+              <Status tone="ok">{scanHint}</Status>
+            ) : null}
+          </div>
 
           {pendingBarcode ? (
             <LinkBarcodePanel
@@ -502,272 +636,89 @@ export default function POSPage() {
               onCancel={() => {
                 setPendingBarcode(null);
                 setScanHint("");
-                requestAnimationFrame(() => searchRef.current?.focus());
+                focusSearch();
               }}
             />
           ) : null}
 
-          {scanHint ? <p className="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-800">{scanHint}</p> : null}
-
-          {showSearchError && !pendingBarcode ? (
-            <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{searchError}</p>
-          ) : null}
-
-          {results.length > 0 ? (
-            <ScrollBox className="max-h-40 shrink-0 rounded-xl border border-slate-200 bg-white">
-              {results.map((product) => {
-                const outOfStock = product.total_qty <= 0;
-                return (
-                  <button
-                    key={product.id}
-                    type="button"
-                    disabled={outOfStock}
-                    onClick={() => addToCart(product)}
-                    className={`flex w-full items-center justify-between border-b border-slate-100 px-4 py-3 text-left last:border-0 ${
-                      outOfStock ? "cursor-not-allowed bg-slate-50 opacity-60" : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-medium text-slate-900">{product.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {product.barcode ?? "No barcode"} ·{" "}
-                        {outOfStock ? (
-                          <span className="text-red-600">Out of stock</span>
-                        ) : (
-                          <>Stock: {product.total_qty}</>
-                        )}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">{formatUsd(product.sale_price_usd)}</p>
-                      <p className="text-xs text-slate-500">{formatLbp(usdToLbp(product.sale_price_usd, rate))}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </ScrollBox>
-          ) : null}
-
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium text-slate-700">
-              Cart{cart.length ? ` · ${cart.reduce((n, i) => n + i.qty, 0)} item(s)` : ""}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                disabled={cart.length === 0}
-                onClick={() => {
-                  setHeldError("");
-                  setHoldOpen(true);
-                }}
-              >
-                <Icon name="pause" className="h-4 w-4" /> Hold sale
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setHeldError("");
-                  refreshHeld();
-                  setHeldListOpen(true);
-                }}
-              >
-                Held sales{held.length ? <span className="badge badge-brand ml-1">{held.length}</span> : null}
-              </button>
+          <div className="sheet flex min-h-[16rem] flex-1 flex-col overflow-hidden">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-rule px-4 py-2">
+              <p className="text-dense text-ink-2">
+                <span className="kicker mr-2">Current sale</span>
+                {cart.length ? (
+                  <>
+                    {cart.length} {cart.length === 1 ? "line" : "lines"} · {unitCount} {unitCount === 1 ? "unit" : "units"}
+                  </>
+                ) : null}
+              </p>
+              <div className="flex gap-1.5">
+                <button type="button" className="btn btn-secondary btn-sm" disabled={cart.length === 0} onClick={openHold}>
+                  <Icon name="pause" className="h-3.5 w-3.5" /> Hold sale <span className="kbd">F4</span>
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={openHeldList}>
+                  Held sales
+                  {held.length ? <span className="rounded-xs bg-ink px-1.5 font-mono text-xs leading-[18px] text-paper-0">{held.length}</span> : null}
+                  <span className="kbd">F3</span>
+                </button>
+              </div>
+            </div>
+            <div className="@container min-h-0 flex-1 overflow-auto">
+              <CartLines cart={cart} lastAddedId={lastAddedId} onQty={updateCartQty} onRemove={(id) => updateCartQty(id, 0)} />
             </div>
           </div>
-
-          <ScrollBox className="min-h-0 flex-1 rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">Item</th>
-                  <th className="px-4 py-3 text-left font-medium">Qty</th>
-                  <th className="px-4 py-3 text-left font-medium">Price</th>
-                  <th className="px-4 py-3 text-right font-medium">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cart.map((item) => (
-                  <tr key={item.product_id} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-medium">{item.name}</td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="number"
-                        min={1}
-                        className="w-16 rounded border border-slate-300 px-2 py-1"
-                        value={item.qty}
-                        onChange={(e) => updateCartQty(item.product_id, Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="px-4 py-3">{formatUsd(item.unit_price_usd)}</td>
-                    <td className="px-4 py-3 text-right">{formatUsd(item.unit_price_usd * item.qty)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {cart.length === 0 ? <p className="px-4 py-8 text-center text-slate-500">Cart is empty</p> : null}
-          </ScrollBox>
         </section>
 
-        <ScrollBox className="min-h-0 rounded-xl border border-slate-200 bg-white lg:max-h-full">
-        <form onSubmit={handleCheckout} className="p-5">
-          <h3 className="text-lg font-semibold text-slate-900">Payment</h3>
-
-          <div className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Subtotal</span>
-              <span>{formatUsd(subtotalUsd)}</span>
-            </div>
-            {canDiscount ? (
-              <label className="block">
-                <span className="text-slate-500">Discount (USD)</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={subtotalUsd}
-                  step="0.01"
-                  className={`input mt-1 ${discount > subtotalUsd ? "input-invalid" : ""}`}
-                  value={discountUsd}
-                  onChange={(e) => {
-                    setCheckoutError("");
-                    setDiscountUsd(e.target.value);
-                  }}
-                />
-                {discount > subtotalUsd ? <span className="mt-1 block text-xs text-red-600">Discount cannot exceed the subtotal.</span> : null}
-              </label>
-            ) : null}
-            <div className="mt-2 rounded-xl bg-slate-900 px-4 py-3 text-white">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-slate-300">Total</span>
-                <span className="text-3xl font-semibold tabular-nums">{formatUsd(totalUsd)}</span>
-              </div>
-              <p className="text-right text-sm text-slate-300 tabular-nums">{formatLbp(totalLbp)}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => fillExactPayment("usd")}
-              className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium"
-            >
-              Exact USD
-            </button>
-            <button
-              type="button"
-              onClick={() => fillExactPayment("lbp")}
-              className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium"
-            >
-              Exact LBP
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            <label className="block text-sm">
-              <span className="text-slate-600">Customer paid (USD)</span>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={paidUsd}
-                onChange={(e) => {
-                  setCheckoutError("");
-                  setPaidUsd(e.target.value);
-                }}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-slate-600">Customer paid (LBP)</span>
-              <input
-                type="number"
-                min={0}
-                step="1"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={paidLbp}
-                onChange={(e) => {
-                  setCheckoutError("");
-                  setPaidLbp(e.target.value);
-                }}
-              />
-            </label>
-            <label className="block text-sm">
-              Payment method
-              <select
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as "cash" | "card" | "mixed")}
-              >
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="mixed">Mixed cash (USD + LBP)</option>
-              </select>
-            </label>
-          </div>
-
-          {(paidUsdNum > 0 || paidLbpNum > 0) && cart.length > 0 ? (
-            <div
-              className={`mt-4 rounded-lg p-3 text-sm ${
-                insufficient
-                  ? "bg-red-50 text-red-800"
-                  : change.hasChange
-                    ? "bg-emerald-50 text-emerald-900"
-                    : "bg-slate-50 text-slate-700"
-              }`}
-            >
-              {insufficient ? (
-                <p>
-                  <span className="font-medium">Still due:</span> {formatUsd(totalUsd - paidEquivalent)} (
-                  {formatLbp(usdToLbp(totalUsd - paidEquivalent, rate))})
-                </p>
-              ) : change.hasChange ? (
-                <>
-                  <p className="font-semibold">Change to return</p>
-                  {change.changeUsd > 0 ? <p className="mt-1">{formatUsd(change.changeUsd)}</p> : null}
-                  {change.changeLbp > 0 ? <p className="mt-1">{formatLbp(change.changeLbp)}</p> : null}
-                  {change.changeUsd > 0 && change.changeLbp > 0 ? (
-                    <p className="mt-1 text-xs opacity-80">Return USD and/or LBP as appropriate.</p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="font-medium">Exact payment — no change</p>
-              )}
-            </div>
-          ) : null}
-
-          {checkoutError ? <p className="mt-3 text-sm text-red-600">{checkoutError}</p> : null}
-
-          <button
-            type="submit"
-            disabled={checkingOut || cart.length === 0 || insufficient || discount > subtotalUsd || drawerOpen === false}
-            className="btn btn-primary btn-lg mt-5 w-full"
-          >
-            {checkingOut ? "Processing..." : "Complete sale & print"}
-          </button>
-
-          {lastSale ? (
-            <button
-              type="button"
-              className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2 text-sm"
-              onClick={() => printReceipt(lastSale)}
-            >
-              Reprint last receipt (#{lastSale.sale.id})
-            </button>
-          ) : null}
-        </form>
-        </ScrollBox>
+        <aside className="sheet min-h-0 overflow-auto" aria-label="Bill">
+          <BillPanel
+            formRef={formRef}
+            onSubmit={handleCheckout}
+            subtotalUsd={subtotalUsd}
+            canDiscount={canDiscount}
+            discountUsd={discountUsd}
+            discountInvalid={discount > subtotalUsd}
+            onDiscount={(v) => {
+              setCheckoutError("");
+              setDiscountUsd(v);
+            }}
+            totalUsd={totalUsd}
+            totalLbp={totalLbp}
+            rate={rate}
+            paymentMethod={paymentMethod}
+            onPaymentMethod={setPaymentMethod}
+            paidUsd={paidUsd}
+            paidLbp={paidLbp}
+            onPaidUsd={(v) => {
+              setCheckoutError("");
+              setPaidUsd(v);
+            }}
+            onPaidLbp={(v) => {
+              setCheckoutError("");
+              setPaidLbp(v);
+            }}
+            onExact={fillExactPayment}
+            tendered={paidUsdNum > 0 || paidLbpNum > 0}
+            insufficient={insufficient}
+            dueUsd={Math.max(0, totalUsd - paidEquivalent)}
+            change={change}
+            checkoutError={checkoutError}
+            checkingOut={checkingOut}
+            cartEmpty={cart.length === 0}
+            drawerOpen={drawerOpen}
+            lastSale={lastSale}
+            onReprint={() => lastSale && printReceipt(lastSale)}
+            onPreview={() => setPreviewOpen(true)}
+          />
+        </aside>
       </div>
 
       <Modal
         open={holdOpen}
         title="Hold this sale"
         size="sm"
-        onClose={() => setHoldOpen(false)}
+        onClose={closeHold}
         footer={
           <>
-            <button type="button" className="btn btn-secondary" onClick={() => setHoldOpen(false)}>
+            <button type="button" className="btn btn-secondary" onClick={closeHold}>
               Cancel
             </button>
             <button type="submit" form="hold-form" className="btn btn-primary">
@@ -784,22 +735,33 @@ export default function POSPage() {
         </form>
       </Modal>
 
-      <Modal open={heldListOpen} title="Held sales" onClose={() => setHeldListOpen(false)}>
+      <Modal
+        open={heldListOpen}
+        title="Held sales"
+        onClose={() => {
+          setHeldListOpen(false);
+          focusSearch();
+        }}
+      >
         {heldError ? <Alert tone="error" className="mb-3">{heldError}</Alert> : null}
         {held.length === 0 ? (
-          <EmptyState title="No held sales" description="Use “Hold sale” to park a cart while you serve another customer." />
+          <EmptyState title="No held sales" description="Use “Hold sale” (F4) to park a cart while you serve another customer." />
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-rule">
             {held.map((h) => (
               <li key={h.id} className="flex items-start justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="font-medium text-slate-900">{h.label || `Sale on hold #${h.id}`}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="font-medium text-ink">{h.label || `Sale on hold #${h.id}`}</p>
+                  <p className="meta">
                     {parseServerDate(h.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {h.held_by} ·{" "}
-                    {h.items.reduce((n, i) => n + i.qty, 0)} item(s) · {formatUsd(h.subtotal_usd)}
+                    {h.items.reduce((n, i) => n + i.qty, 0)} unit(s) · {formatUsd(h.subtotal_usd)}
                   </p>
-                  <p className="truncate text-xs text-slate-500">{h.items.map((i) => `${i.qty}× ${i.name}`).join(", ")}</p>
-                  {h.items.some((i) => !i.available) ? <p className="text-xs text-amber-700">Some items no longer have enough stock.</p> : null}
+                  <p className="truncate text-xs text-ink-3">{h.items.map((i) => `${i.qty}× ${splitProductName(i.name).title}`).join(", ")}</p>
+                  {h.items.some((i) => !i.available) ? (
+                    <Status tone="caution" icon="alert" className="text-xs">
+                      Some items no longer have enough stock
+                    </Status>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDiscardId(h.id)}>
@@ -824,6 +786,21 @@ export default function POSPage() {
         onConfirm={discardHeld}
         onCancel={() => setDiscardId(null)}
       />
-    </PageShell>
+
+      <Modal open={previewOpen && Boolean(lastSale)} title={lastSale ? `Receipt — sale #${lastSale.sale.id}` : "Receipt"} size="lg" onClose={() => setPreviewOpen(false)}
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen(false)}>
+              Close
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => lastSale && printReceipt(lastSale)}>
+              <Icon name="printer" className="h-4 w-4" /> Print
+            </button>
+          </>
+        }
+      >
+        {lastSale ? <Receipt detail={lastSale} /> : null}
+      </Modal>
+    </div>
   );
 }

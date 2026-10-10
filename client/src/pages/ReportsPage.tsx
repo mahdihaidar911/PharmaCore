@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { PageShell, ScrollBox } from "../components/PageShell";
-import { Alert, EmptyState, Spinner, StatCard } from "../components/ui";
+import { Icon } from "../components/icons";
+import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
+import { ProductName } from "../components/ProductName";
+import { Alert, EmptyState, FigureRow, Spinner, StatCard, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import {
   api,
@@ -16,6 +18,7 @@ import {
   type TopProductsReport,
 } from "../lib/api";
 import { downloadCsv } from "../lib/csv";
+import { daysUntil, expiryStatus } from "../lib/expiry";
 
 const PRESETS = [
   { label: "Today", from: () => localToday(), to: () => localToday() },
@@ -25,6 +28,7 @@ const PRESETS = [
 ];
 
 const MOVEMENT_LABEL: Record<string, string> = { receive: "Received", sale: "Sale", return: "Return", adjustment: "Adjustment" };
+const METHOD_LABEL: Record<string, string> = { cash: "Cash", card: "Card", mixed: "Mixed cash (USD + LBP)" };
 
 type Data = {
   summary?: SalesSummary;
@@ -34,6 +38,34 @@ type Data = {
   stock?: DashboardReport;
   movements?: MovementsReport;
 };
+
+function ExportButton({ name, headers, rows }: { name: string; headers: string[]; rows: (string | number)[][] }) {
+  if (rows.length === 0) return null;
+  return (
+    <button type="button" className="btn btn-ghost btn-sm print:hidden" onClick={() => downloadCsv(name, headers, rows)}>
+      <Icon name="download" className="h-3.5 w-3.5" /> CSV
+    </button>
+  );
+}
+
+function Question({ id, title, count, action, children, className = "" }: { id: string; title: string; count?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section aria-labelledby={id} className={`break-inside-avoid ${className}`.trim()}>
+      <SectionHead id={id} title={title} count={count} action={action} />
+      {children}
+    </section>
+  );
+}
+
+/** A proportional bar inside a table cell: the number is always printed beside it. */
+function Bar({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? Math.max(1.5, (value / max) * 100) : 0;
+  return (
+    <span className="block h-2 w-full bg-paper-2" aria-hidden>
+      <span className="block h-2 bg-forest-600" style={{ width: `${pct}%` }} />
+    </span>
+  );
+}
 
 export default function ReportsPage() {
   const { can } = useAuth();
@@ -72,210 +104,388 @@ export default function ReportsPage() {
     };
   }, [from, to, showSales, showProfit, can]);
 
-  const maxDaily = Math.max(1, ...(data?.daily?.days.map((d) => d.net_revenue_usd) ?? [1]));
+  const days = data?.summary?.period.days ?? Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1);
+  const maxDaily = Math.max(0, ...(data?.daily?.days.map((d) => d.net_revenue_usd) ?? [0]));
+  const methodTotal = data?.summary?.by_payment_method.reduce((s, m) => s + m.net_revenue_usd, 0) ?? 0;
 
   return (
     <PageShell
       title="Reports"
-      description="Sales, stock alerts and stock movements for a date range. Revenue is after discounts."
+      description={`${from === to ? from : `${from} to ${to}`} · revenue is after discounts`}
       actions={
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex rounded-lg bg-slate-200/70 p-1">
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <div className="segmented" role="group" aria-label="Period">
             {PRESETS.map((p) => {
               const active = from === p.from() && to === p.to();
               return (
-                <button key={p.label} type="button" className={`tab ${active ? "tab-active" : ""}`} onClick={() => (setFrom(p.from()), setTo(p.to()))}>
+                <button key={p.label} type="button" aria-pressed={active} className={`tab ${active ? "tab-active" : ""}`} onClick={() => (setFrom(p.from()), setTo(p.to()))}>
                   {p.label}
                 </button>
               );
             })}
           </div>
-          <input type="date" className="input w-auto" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="From" />
-          <input type="date" className="input w-auto" value={to} min={from} onChange={(e) => setTo(e.target.value)} aria-label="To" />
-          <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
-            Print
+          <input type="date" className="input min-h-8 w-auto py-1 text-dense" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="From" />
+          <span className="text-ink-3">–</span>
+          <input type="date" className="input min-h-8 w-auto py-1 text-dense" value={to} min={from} onChange={(e) => setTo(e.target.value)} aria-label="To" />
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+            <Icon name="printer" className="h-4 w-4" /> Print
           </button>
         </div>
       }
     >
-      {error ? <Alert tone="error">{error}</Alert> : null}
+      {error ? <Alert tone="error" className="mb-3">{error}</Alert> : null}
       <ScrollBox className="min-h-0 flex-1">
         {loading && !data ? <Spinner className="p-4" /> : null}
         {data ? (
-          <div className={`space-y-4 pb-2 ${loading ? "opacity-60" : ""}`}>
+          <div className={`space-y-8 pb-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
             {data.summary ? (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard label="Net revenue" value={formatUsd(data.summary.net_revenue_usd)} hint={formatLbp(data.summary.net_revenue_lbp)} />
-                <StatCard label="Sales" value={data.summary.sale_count} hint={`Average ${formatUsd(data.summary.average_sale_usd)}`} />
-                <StatCard label="Units sold" value={data.summary.units_sold} hint={`${data.summary.distinct_products_sold} different products`} />
-                <StatCard
-                  label="Refunds"
-                  value={formatUsd(data.summary.refunds_usd)}
-                  hint={`${data.summary.return_count} return(s) · discounts ${formatUsd(data.summary.discounts_usd)}`}
-                  tone={data.summary.refunds_usd > 0 ? "warning" : "neutral"}
-                />
-              </div>
+              <Question id="r-sold" title="How much did we sell?">
+                <FigureRow className="mt-3">
+                  <StatCard label="Net revenue" value={formatUsd(data.summary.net_revenue_usd)} hint={formatLbp(data.summary.net_revenue_lbp)} />
+                  <StatCard label="Sales" value={data.summary.sale_count} hint={`Average ${formatUsd(data.summary.average_sale_usd)} per sale`} />
+                  <StatCard label="Units sold" value={data.summary.units_sold} hint={`${data.summary.distinct_products_sold} different products`} />
+                  <StatCard
+                    label="Refunds"
+                    value={formatUsd(data.summary.refunds_usd)}
+                    hint={`${data.summary.return_count} return(s) · discounts given ${formatUsd(data.summary.discounts_usd)}`}
+                    tone={data.summary.refunds_usd > 0 ? "warning" : "neutral"}
+                  />
+                </FigureRow>
+              </Question>
             ) : (
-              <Alert tone="info">Your role can see stock reports only. Sales and revenue figures are restricted to pharmacists and owners.</Alert>
+              <Alert tone="info">Your role sees stock reports only. Sales and revenue figures are for pharmacists and owners.</Alert>
             )}
 
-            {data.profit ? (
-              <Section title="Profit (owner only)">
-                <div className="grid gap-3 p-4 sm:grid-cols-3">
-                  <StatCard label="Gross profit" value={formatUsd(data.profit.gross_profit_usd)} hint={data.profit.gross_margin_percent !== null ? `${data.profit.gross_margin_percent}% margin` : "No cost data"} />
-                  <StatCard label="Cost of goods" value={formatUsd(data.profit.cost_of_goods_usd)} />
-                  <StatCard
-                    label="Cost coverage"
-                    value={data.profit.cost_coverage_percent !== null ? `${data.profit.cost_coverage_percent}%` : "—"}
-                    hint="Share of units sold with a recorded purchase cost"
-                    tone={data.profit.cost_coverage_percent !== null && data.profit.cost_coverage_percent < 80 ? "warning" : "neutral"}
-                  />
-                </div>
-              </Section>
-            ) : null}
-
-            {data.daily && data.daily.days.length > 1 ? (
-              <Section title="Daily revenue">
-                <div className="flex h-40 items-end gap-1 overflow-x-auto px-4 pt-4 pb-2">
-                  {data.daily.days.map((d) => (
-                    <div key={d.date} className="flex min-w-6 flex-1 flex-col items-center gap-1" title={`${d.date}: ${formatUsd(d.net_revenue_usd)} · ${d.sale_count} sales`}>
-                      <div className="w-full rounded-t bg-brand-600" style={{ height: `${Math.max(2, (d.net_revenue_usd / maxDaily) * 120)}px` }} />
-                      <span className="text-[10px] text-slate-500">{d.date.slice(8)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            ) : null}
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              {data.top ? (
-                <TableSection
-                  title="Top products"
-                  headers={["Product", "Units", "Returned", "Revenue", "In stock"]}
-                  rows={data.top.products.map((p) => [p.name, p.units_sold, p.units_returned, formatUsd(p.net_revenue_usd), p.current_stock])}
-                  csvName={`top-products-${from}-${to}.csv`}
-                />
-              ) : null}
+            <div className="grid gap-x-8 gap-y-8 xl:grid-cols-2">
               {data.summary ? (
-                <TableSection
-                  title="Sales by cashier"
-                  headers={["Cashier", "Sales", "Revenue"]}
-                  rows={data.summary.by_cashier.map((c) => [c.cashier, c.sale_count, formatUsd(c.net_revenue_usd)])}
-                  csvName={`sales-by-cashier-${from}-${to}.csv`}
-                />
+                <Question id="r-method" title="How did customers pay?">
+                  {data.summary.by_payment_method.length === 0 ? (
+                    <EmptyState title="No sales in this period." />
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="!pl-0">Method</th>
+                          <th className="num">Sales</th>
+                          <th className="w-1/3">Share of revenue</th>
+                          <th className="num !pr-0">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.summary.by_payment_method.map((m) => (
+                          <tr key={m.payment_method}>
+                            <td className="!pl-0 font-medium">{METHOD_LABEL[m.payment_method] ?? m.payment_method}</td>
+                            <td className="num">{m.sale_count}</td>
+                            <td>
+                              <span className="flex items-center gap-2">
+                                <Bar value={m.net_revenue_usd} max={methodTotal} />
+                                <span className="w-10 text-right text-xs text-ink-2">{methodTotal > 0 ? Math.round((m.net_revenue_usd / methodTotal) * 100) : 0}%</span>
+                              </span>
+                            </td>
+                            <td className="num !pr-0 font-medium">{formatUsd(m.net_revenue_usd)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Question>
               ) : null}
+
+              {data.daily && data.daily.days.length > 1 ? (
+                <Question
+                  id="r-daily"
+                  title="How did each day go?"
+                  action={<ExportButton name={`daily-${from}-${to}.csv`} headers={["Date", "Sales", "Revenue USD"]} rows={data.daily.days.map((d) => [d.date, d.sale_count, d.net_revenue_usd])} />}
+                >
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th className="!pl-0">Day</th>
+                        <th className="num">Sales</th>
+                        <th className="w-2/5">
+                          <span className="sr-only">Revenue bar</span>
+                        </th>
+                        <th className="num !pr-0">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.daily.days.map((d) => (
+                        <tr key={d.date}>
+                          <td className="code !pl-0 whitespace-nowrap">
+                            {new Date(`${d.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short" })} {d.date.slice(5)}
+                          </td>
+                          <td className={`num ${d.sale_count ? "" : "text-ink-4"}`}>{d.sale_count}</td>
+                          <td>{d.net_revenue_usd > 0 ? <Bar value={d.net_revenue_usd} max={maxDaily} /> : null}</td>
+                          <td className={`num !pr-0 ${d.net_revenue_usd ? "font-medium" : "text-ink-4"}`}>{formatUsd(d.net_revenue_usd)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Question>
+              ) : null}
+
+              {data.top ? (
+                <Question
+                  id="r-fast"
+                  title="What sells fastest?"
+                  className="xl:col-span-2"
+                  action={
+                    <ExportButton
+                      name={`top-products-${from}-${to}.csv`}
+                      headers={["Product", "Units sold", "Units returned", "Revenue USD", "In stock"]}
+                      rows={data.top.products.map((p) => [p.name, p.units_sold, p.units_returned, p.net_revenue_usd, p.current_stock])}
+                    />
+                  }
+                >
+                  {data.top.products.length === 0 ? (
+                    <EmptyState title="No sales in this period." />
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="!pl-0">Product</th>
+                          <th className="num">Units</th>
+                          <th className="num">Per day</th>
+                          <th className="num hidden md:table-cell">Returned</th>
+                          <th className="num">Revenue</th>
+                          <th className="num">In stock</th>
+                          <th className="num !pr-0" title="In stock ÷ units sold per day in this period">
+                            Days of cover
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.top.products.map((p) => {
+                          const perDay = p.units_sold / days;
+                          const cover = perDay > 0 ? p.current_stock / perDay : null;
+                          return (
+                            <tr key={p.product_id}>
+                              <td className="w-full max-w-0 !pl-0">
+                                <ProductName name={p.name} inline className="block truncate" />
+                              </td>
+                              <td className="num font-medium">{p.units_sold}</td>
+                              <td className="num text-ink-2">{perDay.toFixed(perDay < 10 ? 1 : 0)}</td>
+                              <td className={`num hidden md:table-cell ${p.units_returned ? "" : "text-ink-4"}`}>{p.units_returned}</td>
+                              <td className="num">{formatUsd(p.net_revenue_usd)}</td>
+                              <td className="num">{p.current_stock}</td>
+                              <td className="num !pr-0">
+                                {cover === null ? (
+                                  "—"
+                                ) : cover < 7 ? (
+                                  <Status tone={cover < 1 ? "danger" : "caution"} icon="alert">
+                                    {cover < 1 ? "< 1 day" : `${Math.floor(cover)} days`}
+                                  </Status>
+                                ) : (
+                                  `${Math.round(cover)} days`
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </Question>
+              ) : null}
+
+              {data.profit ? (
+                <Question id="r-profit" title="What did we earn?" count="owner only">
+                  <FigureRow className="mt-3 xl:grid-cols-3">
+                    <StatCard
+                      label="Gross profit"
+                      value={formatUsd(data.profit.gross_profit_usd)}
+                      hint={data.profit.gross_margin_percent !== null ? `${data.profit.gross_margin_percent}% margin` : "No cost data"}
+                    />
+                    <StatCard label="Cost of goods" value={formatUsd(data.profit.cost_of_goods_usd)} />
+                    <StatCard
+                      label="Cost coverage"
+                      value={data.profit.cost_coverage_percent !== null ? `${data.profit.cost_coverage_percent}%` : "—"}
+                      hint="Units sold that have a recorded purchase cost"
+                      tone={data.profit.cost_coverage_percent !== null && data.profit.cost_coverage_percent < 80 ? "warning" : "neutral"}
+                    />
+                  </FigureRow>
+                </Question>
+              ) : null}
+
+              {data.summary ? (
+                <Question
+                  id="r-cashier"
+                  title="Who sold?"
+                  action={
+                    <ExportButton
+                      name={`sales-by-cashier-${from}-${to}.csv`}
+                      headers={["Cashier", "Sales", "Revenue USD"]}
+                      rows={data.summary.by_cashier.map((c) => [c.cashier, c.sale_count, c.net_revenue_usd])}
+                    />
+                  }
+                >
+                  {data.summary.by_cashier.length === 0 ? (
+                    <EmptyState title="No sales in this period." />
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="!pl-0">Cashier</th>
+                          <th className="num">Sales</th>
+                          <th className="num !pr-0">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.summary.by_cashier.map((c) => (
+                          <tr key={c.cashier}>
+                            <td className="!pl-0 font-medium">{c.cashier}</td>
+                            <td className="num">{c.sale_count}</td>
+                            <td className="num !pr-0 font-medium">{formatUsd(c.net_revenue_usd)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Question>
+              ) : null}
+
               {data.stock ? (
                 <>
-                  <TableSection
-                    title={`Low stock (${data.stock.lowStockTotal})`}
-                    headers={["Product", "Qty", "Min"]}
-                    rows={data.stock.lowStock.map((p) => [p.name, p.total_qty, p.min_stock])}
-                    csvName="low-stock.csv"
-                  />
-                  <TableSection
-                    title={`Expired & expiring within 90 days (${data.stock.expiredTotal + data.stock.nearExpiryTotal})`}
-                    headers={["Product", "Qty", "Expiry"]}
-                    rows={[...data.stock.expired, ...data.stock.nearExpiry].map((b) => [b.product_name, b.qty, b.expiry_date])}
-                    csvName="expiry.csv"
-                  />
+                  <Question
+                    id="r-low"
+                    title="What should be reordered?"
+                    count={data.stock.lowStockTotal}
+                    action={<ExportButton name="low-stock.csv" headers={["Product", "Qty", "Min"]} rows={data.stock.lowStock.map((p) => [p.name, p.total_qty, p.min_stock])} />}
+                  >
+                    {data.stock.lowStock.length === 0 ? (
+                      <EmptyState title="Every product is above its minimum." />
+                    ) : (
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th className="!pl-0">Product</th>
+                            <th className="num">On hand</th>
+                            <th className="num !pr-0">Minimum</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.stock.lowStock.map((p) => (
+                            <tr key={p.id}>
+                              <td className="w-full max-w-0 !pl-0">
+                                <ProductName name={p.name} inline className="block truncate" />
+                              </td>
+                              <td className="num">{p.total_qty === 0 ? <Status tone="danger">0</Status> : p.total_qty}</td>
+                              <td className="num !pr-0 text-ink-2">{p.min_stock}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </Question>
+                  <Question
+                    id="r-expiry"
+                    title="What is expiring?"
+                    count={data.stock.expiredTotal + data.stock.nearExpiryTotal}
+                    action={
+                      <ExportButton
+                        name="expiry.csv"
+                        headers={["Product", "Qty", "Expiry"]}
+                        rows={[...data.stock.expired, ...data.stock.nearExpiry].map((b) => [b.product_name, b.qty, b.expiry_date])}
+                      />
+                    }
+                  >
+                    {data.stock.expired.length + data.stock.nearExpiry.length === 0 ? (
+                      <EmptyState title="Nothing expires in the next 90 days." />
+                    ) : (
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th className="!pl-0">Product</th>
+                            <th className="num">Qty</th>
+                            <th>Expiry</th>
+                            <th className="!pr-0 text-right">State</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...data.stock.expired, ...data.stock.nearExpiry].map((b) => {
+                            const st = expiryStatus(daysUntil(b.expiry_date));
+                            return (
+                              <tr key={b.id}>
+                                <td className="w-full max-w-0 !pl-0">
+                                  <ProductName name={b.product_name} inline className="block truncate" />
+                                </td>
+                                <td className="num">{b.qty}</td>
+                                <td className="code whitespace-nowrap text-ink-2">{b.expiry_date}</td>
+                                <td className="!pr-0 text-right">
+                                  <Status tone={st.tone} className="text-xs">
+                                    {st.label}
+                                  </Status>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </Question>
                 </>
               ) : null}
             </div>
 
             {data.movements ? (
-              <TableSection
-                title="Stock movements"
-                subtitle={data.movements.totals_by_type.map((t) => `${MOVEMENT_LABEL[t.movement_type] ?? t.movement_type}: ${t.net_units > 0 ? "+" : ""}${t.net_units}`).join(" · ")}
-                headers={["Date", "Type", "Product", "Qty", "Reason / note", "User"]}
-                rows={data.movements.movements.map((m) => [
-                  parseServerDate(m.created_at).toLocaleString(),
-                  MOVEMENT_LABEL[m.movement_type] ?? m.movement_type,
-                  m.product_name,
-                  m.qty_change > 0 ? `+${m.qty_change}` : m.qty_change,
-                  [m.reason?.replace("_", " "), m.notes].filter(Boolean).join(" — "),
-                  m.username ?? "",
-                ])}
-                csvName={`stock-movements-${from}-${to}.csv`}
-              />
+              <Question
+                id="r-moves"
+                title="What moved in and out of stock?"
+                count={data.movements.totals_by_type.map((t) => `${MOVEMENT_LABEL[t.movement_type] ?? t.movement_type} ${t.net_units > 0 ? "+" : ""}${t.net_units}`).join(" · ")}
+                action={
+                  <ExportButton
+                    name={`stock-movements-${from}-${to}.csv`}
+                    headers={["Date", "Type", "Product", "Qty", "Reason / note", "User"]}
+                    rows={data.movements.movements.map((m) => [
+                      parseServerDate(m.created_at).toLocaleString(),
+                      MOVEMENT_LABEL[m.movement_type] ?? m.movement_type,
+                      m.product_name,
+                      m.qty_change,
+                      [m.reason?.replace("_", " "), m.notes].filter(Boolean).join(" — "),
+                      m.username ?? "",
+                    ])}
+                  />
+                }
+              >
+                {data.movements.movements.length === 0 ? (
+                  <EmptyState title="No stock movements in this period." />
+                ) : (
+                  <div className="max-h-[28rem] overflow-auto">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="!pl-0">When</th>
+                          <th>Type</th>
+                          <th>Product</th>
+                          <th className="num">Qty</th>
+                          <th className="hidden lg:table-cell">Reason / note</th>
+                          <th className="!pr-0">User</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.movements.movements.map((m) => (
+                          <tr key={m.id}>
+                            <td className="code !pl-0 whitespace-nowrap text-ink-2">{parseServerDate(m.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                            <td>{MOVEMENT_LABEL[m.movement_type] ?? m.movement_type}</td>
+                            <td className="w-full max-w-0">
+                              <ProductName name={m.product_name} inline className="block truncate" />
+                            </td>
+                            <td className={`num font-medium ${m.qty_change < 0 ? "text-ink" : "text-forest-700"}`}>
+                              {m.qty_change > 0 ? `+${m.qty_change}` : m.qty_change}
+                            </td>
+                            <td className="hidden max-w-60 truncate text-ink-2 lg:table-cell">{[m.reason?.replace("_", " "), m.notes].filter(Boolean).join(" — ")}</td>
+                            <td className="!pr-0 text-ink-2">{m.username ?? ""}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Question>
             ) : null}
           </div>
         ) : null}
       </ScrollBox>
     </PageShell>
-  );
-}
-
-function Section({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="card overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
-        <div>
-          <h3 className="card-title">{title}</h3>
-          {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-const isNumericColumn = (rows: (string | number)[][], index: number) =>
-  rows.length > 0 && rows.every((row) => typeof row[index] === "number" || /^[+-]?\$?[\d,.]+$/.test(String(row[index])));
-
-function TableSection({
-  title,
-  subtitle,
-  headers,
-  rows,
-  csvName,
-}: {
-  title: string;
-  subtitle?: string;
-  headers: string[];
-  rows: (string | number)[][];
-  csvName: string;
-}) {
-  return (
-    <Section
-      title={title}
-      subtitle={subtitle}
-      action={
-        rows.length ? (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => downloadCsv(csvName, headers, rows)}>
-            Export CSV
-          </button>
-        ) : null
-      }
-    >
-      {rows.length === 0 ? (
-        <EmptyState title="No data for this period" />
-      ) : (
-        <div className="max-h-96 overflow-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {headers.map((h, i) => (
-                  <th key={h} className={isNumericColumn(rows, i) ? "text-right" : ""}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td key={j} className={isNumericColumn(rows, j) ? "text-right tabular-nums" : ""}>
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
   );
 }

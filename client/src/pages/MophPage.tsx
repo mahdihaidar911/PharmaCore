@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  api,
-  formatLbp,
-  formatUsd,
-  type MophCheckResult,
-  type MophStatus,
-} from "../lib/api";
-import { PageShell, Panel, ScrollBox } from "../components/PageShell";
+import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
+import { Icon } from "../components/icons";
+import { Alert, FigureRow, StatCard } from "../components/ui";
 import { useSettings } from "../context/SettingsContext";
+import { api, formatLbp, formatUsd, type MophCheckResult, type MophStatus } from "../lib/api";
 
 type Step = "idle" | "checking" | "ready" | "applying" | "done";
 
@@ -16,6 +12,20 @@ type CatalogFiles = {
   nonMarketed: File | null;
   primaryRegistered: File | null;
 };
+
+function FileField({ label, onFile }: { label: string; onFile: (file: File | null) => void }) {
+  return (
+    <label className="block">
+      <span className="field-label">{label}</span>
+      <input
+        type="file"
+        accept=".xls,.xlsx"
+        className="block w-full text-dense text-ink-2 file:mr-3 file:cursor-pointer file:rounded-sm file:border file:border-line-input file:bg-paper-0 file:px-3 file:py-1.5 file:text-dense file:font-medium file:text-ink hover:file:bg-paper-2"
+        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+      />
+    </label>
+  );
+}
 
 function MophPreview({
   check,
@@ -41,95 +51,56 @@ function MophPreview({
   const isCatalog = mode === "catalog";
 
   return (
-    <div className="rounded-lg border border-teal-200 bg-teal-50/50 space-y-3 p-4">
-      <h3 className="font-semibold text-slate-900">Preview</h3>
-      <p className="text-sm text-slate-700">
-        <strong>{check.rowsCompared.toLocaleString()}</strong> rows in file
+    <div className="space-y-3 rounded-md border border-rule-strong bg-paper-0 p-4">
+      <p className="text-dense text-ink-2">
+        <span className="kicker mr-2">Preview</span>
+        <strong className="text-ink">{check.rowsCompared.toLocaleString()}</strong> rows in file
         {isCatalog && (check.marketedCount != null || check.nonMarketedCount != null) ? (
           <>
             {" "}
-            · marketed {check.marketedCount?.toLocaleString() ?? "—"} · non-marketed{" "}
-            {check.nonMarketedCount?.toLocaleString() ?? "—"} · primary registered{" "}
+            · marketed {check.marketedCount?.toLocaleString() ?? "—"} · non-marketed {check.nonMarketedCount?.toLocaleString() ?? "—"} · primary registered{" "}
             {check.primaryCount?.toLocaleString() ?? "—"}
           </>
         ) : null}
       </p>
-      <ul className="grid gap-2 text-sm sm:grid-cols-3">
-        {isCatalog ? (
-          <li className="rounded-lg bg-white px-3 py-2">
-            <span className="text-slate-500">New products</span>
-            <p className="text-lg font-semibold text-emerald-700">{check.newProducts}</p>
-          </li>
-        ) : null}
-        <li className="rounded-lg bg-white px-3 py-2">
-          <span className="text-slate-500">{isCatalog ? "Updates" : "Price changes"}</span>
-          <p className="text-lg font-semibold text-amber-700">{check.priceChanges}</p>
-        </li>
-        <li className="rounded-lg bg-white px-3 py-2">
-          <span className="text-slate-500">Unchanged</span>
-          <p className="text-lg font-semibold text-slate-700">{check.unchanged}</p>
-        </li>
-        {!isCatalog ? (
-          <li className="rounded-lg bg-white px-3 py-2">
-            <span className="text-slate-500">Not in your catalog</span>
-            <p className="text-lg font-semibold text-slate-600">{check.notInCatalog ?? check.newProducts}</p>
-          </li>
-        ) : null}
-      </ul>
+      <FigureRow className="xl:grid-cols-3">
+        {isCatalog ? <StatCard label="New products" value={check.newProducts.toLocaleString()} /> : null}
+        <StatCard label={isCatalog ? "Updates" : "Price changes"} value={check.priceChanges.toLocaleString()} tone={check.priceChanges > 0 ? "warning" : "neutral"} />
+        <StatCard label="Unchanged" value={check.unchanged.toLocaleString()} />
+        {!isCatalog ? <StatCard label="Not in your catalogue" value={(check.notInCatalog ?? check.newProducts).toLocaleString()} /> : null}
+      </FigureRow>
       {!isCatalog && (check.notInCatalog ?? 0) > 0 ? (
-        <p className="text-xs text-amber-800">
-          {check.notInCatalog} drugs are on the price list but not in PharmaCore — run catalog import first.
-        </p>
+        <Alert tone="warning">{check.notInCatalog} drugs are on the price list but not in PharmaCore — run the catalogue import first.</Alert>
       ) : null}
-      {check.skippedUnmapped > 0 ? (
-        <p className="text-xs text-slate-500">{check.skippedUnmapped} rows skipped (missing code/name/price)</p>
-      ) : null}
+      {check.skippedUnmapped > 0 ? <p className="meta">{check.skippedUnmapped} rows skipped (missing code, name or price).</p> : null}
 
       {check.sampleChanges.length > 0 ? (
-        <ScrollBox className="max-h-56 rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500">
+        <ScrollBox className="max-h-64 rounded-sm border border-rule">
+          <table className="data-table">
+            <thead>
               <tr>
-                <th className="px-3 py-2 text-left">Change</th>
-                <th className="px-3 py-2 text-left">رقم الوزارة</th>
-                <th className="px-3 py-2 text-left">Product</th>
-                <th className="px-3 py-2 text-right">MoPH LBP</th>
-                <th className="px-3 py-2 text-right">Shelf USD</th>
+                <th>Change</th>
+                <th>MoPH code</th>
+                <th>Product</th>
+                <th className="num">MoPH LBP</th>
+                <th className="num">Shelf USD</th>
               </tr>
             </thead>
             <tbody>
               {check.sampleChanges.map((row) => (
-                <tr key={`${row.type}-${row.moph_code}`} className="border-t border-slate-100">
-                  <td className="px-3 py-2">
-                    {row.type === "new" ? (
-                      <span className="text-emerald-700">New</span>
-                    ) : (
-                      <span className="text-amber-700">Price</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{row.moph_code}</td>
-                  <td className="px-3 py-2 font-medium">{row.name}</td>
-                  <td className="px-3 py-2 text-right">
-                    {row.type === "price_change" &&
-                    row.previous_official_price_lbp != null &&
-                    row.official_price_lbp != null ? (
-                      <>
-                        <span className="text-slate-400 line-through">
-                          {formatLbp(row.previous_official_price_lbp)}
-                        </span>
-                        <br />
-                      </>
+                <tr key={`${row.type}-${row.moph_code}`}>
+                  <td className="font-medium">{row.type === "new" ? "New" : "Price"}</td>
+                  <td className="code text-ink-2">{row.moph_code}</td>
+                  <td className="font-medium">{row.name}</td>
+                  <td className="num">
+                    {row.type === "price_change" && row.previous_official_price_lbp != null && row.official_price_lbp != null ? (
+                      <span className="block text-xs text-ink-3 line-through">{formatLbp(row.previous_official_price_lbp)}</span>
                     ) : null}
                     {row.official_price_lbp != null ? formatLbp(row.official_price_lbp) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="num">
                     {row.type === "price_change" && row.previous_sale_price_usd != null ? (
-                      <>
-                        <span className="text-slate-400 line-through">
-                          {formatUsd(row.previous_sale_price_usd)}
-                        </span>
-                        <br />
-                      </>
+                      <span className="block text-xs text-ink-3 line-through">{formatUsd(row.previous_sale_price_usd)}</span>
                     ) : null}
                     {formatUsd(row.new_sale_price_usd)}
                   </td>
@@ -140,23 +111,15 @@ function MophPreview({
         </ScrollBox>
       ) : null}
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={applyRetailPrices}
-          onChange={(e) => onApplyRetailPrices(e.target.checked)}
-        />
-        Set shelf prices (USD) from official MoPH LBP ÷ exchange rate
-      </label>
-
-      <button
-        type="button"
-        disabled={!canApply || busy}
-        onClick={onApply}
-        className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-      >
-        {busy ? applyingLabel : applyLabel}
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-3">
+        <label className="flex items-center gap-2 text-dense text-ink-2">
+          <input type="checkbox" className="h-4 w-4 accent-forest-700" checked={applyRetailPrices} onChange={(e) => onApplyRetailPrices(e.target.checked)} />
+          Set shelf prices (USD) from the official MoPH LBP price ÷ exchange rate
+        </label>
+        <button type="button" disabled={!canApply || busy} onClick={onApply} className="btn btn-primary">
+          {busy ? applyingLabel : applyLabel}
+        </button>
+      </div>
     </div>
   );
 }
@@ -340,191 +303,110 @@ export default function MophPage() {
 
   return (
     <PageShell
-      title="MoPH sync"
+      title="MoPH catalogue"
       description={
         <>
-          <strong>Once — catalog:</strong> merge{" "}
-          <strong>WebMarketed</strong> (~5.5k, Code + public price),{" "}
-          <strong>WebNonMarketed</strong> (~5k, Code, no price), and{" "}
-          <strong>primary registered</strong> (~227, no Code — synthetic IDs).{" "}
-          <strong>Ongoing — prices:</strong> when MoPH publishes a new list (e.g. 20260505), run{" "}
-          <strong>WebMarketed</strong> only to update existing products by رقم الوزارة. Exchange rate:{" "}
-          {rate.toLocaleString()} LBP/USD.{" "}
-          <a
-            href="https://moph.gov.lb/en/Pages/3/3101/drugs-public-price-list-"
-            target="_blank"
-            rel="noreferrer"
-            className="text-teal-700 underline"
-          >
-            Drugs Public Price List
+          Import the Ministry of Public Health drug lists once, then refresh public prices whenever MoPH publishes a new list. Rate used:{" "}
+          <span className="font-mono">{rate.toLocaleString()} LBP/USD</span>.{" "}
+          <a href="https://moph.gov.lb/en/Pages/3/3101/drugs-public-price-list-" target="_blank" rel="noreferrer" className="font-medium text-forest-700 underline">
+            MoPH public price list
           </a>
         </>
       }
-    >
-      <ScrollBox className="flex min-h-0 flex-1 flex-col gap-4">
-        {!serverOk ? (
-          <p className="shrink-0 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            MoPH API is not available. Close every terminal, open PharmaCore, run{" "}
-            <code className="rounded bg-amber-100 px-1">npm run dev</code>, then refresh this page.
-          </p>
-        ) : null}
-
-        {status?.moph_last_import_at ? (
-          <p className="shrink-0 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
-            Last import: {new Date(status.moph_last_import_at).toLocaleString()}
+      actions={
+        status?.moph_last_import_at ? (
+          <p className="meta">
+            Last import <span className="code text-ink-2">{new Date(status.moph_last_import_at).toLocaleString()}</span>
             {status.moph_last_import_source ? ` · ${status.moph_last_import_source}` : null}
           </p>
-        ) : null}
+        ) : null
+      }
+    >
+      <ScrollBox className="min-h-0 flex-1">
+        <div className="max-w-4xl space-y-8 pb-4">
+          {!serverOk ? (
+            <Alert tone="warning" title="The MoPH import service is not available">
+              Restart PharmaCore (<code className="code">npm run dev</code>), then refresh this page.
+            </Alert>
+          ) : null}
 
-        <Panel className="shrink-0 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">1. National catalog (one-time)</h2>
-          <p className="text-sm text-slate-600">
-            You already imported the three files — that is your main database. Re-import only if MoPH adds many
-            new drugs or you need a full refresh. Otherwise use section 2 for price updates.
-          </p>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="block text-sm">
-              <span className="text-slate-600">WebMarketed .xls</span>
-              <input
-                type="file"
-                accept=".xls,.xlsx"
-                className="mt-1 block w-full text-xs"
-                onChange={(e) =>
-                  setCatalogFiles((f) => ({ ...f, marketed: e.target.files?.[0] ?? null }))
-                }
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-slate-600">WebNonMarketed .xls</span>
-              <input
-                type="file"
-                accept=".xls,.xlsx"
-                className="mt-1 block w-full text-xs"
-                onChange={(e) =>
-                  setCatalogFiles((f) => ({ ...f, nonMarketed: e.target.files?.[0] ?? null }))
-                }
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-slate-600">Primary registered .xlsx</span>
-              <input
-                type="file"
-                accept=".xls,.xlsx"
-                className="mt-1 block w-full text-xs"
-                onChange={(e) =>
-                  setCatalogFiles((f) => ({ ...f, primaryRegistered: e.target.files?.[0] ?? null }))
-                }
-              />
-            </label>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={anyBusy || !serverOk}
-              onClick={runCatalogCheckUpload}
-              className="rounded-xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
-            >
-              {catStep === "checking" ? "Checking…" : "Preview from uploads"}
+          <section className="space-y-3">
+            <SectionHead title="1 · Price list update" count="repeat when MoPH publishes" />
+            <p className="text-dense text-ink-2">
+              Uses <strong>WebMarketed</strong> only. Updates prices of products already in your catalogue, matched by MoPH code. Never adds products.
+            </p>
+            <button type="button" disabled={anyBusy || !serverOk} onClick={runPriceCheck} className="btn btn-primary btn-lg">
+              {priceStep === "checking" ? "Checking price list…" : "Check public price list"}
             </button>
-            <button
-              type="button"
-              disabled={anyBusy || !serverOk}
-              onClick={runCatalogCheckFromMoPH}
-              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
-            >
-              {catStep === "checking" ? "Downloading…" : "Download from MoPH"}
-            </button>
-          </div>
+            {priceMessage && priceStep !== "done" ? <p className="text-dense text-ink-2">{priceMessage}</p> : null}
+            {priceCheck ? (
+              <MophPreview
+                check={priceCheck}
+                mode="prices_only"
+                applyRetailPrices={applyRetailPrices}
+                onApplyRetailPrices={setApplyRetailPrices}
+                canApply={priceStep === "ready"}
+                busy={priceBusy}
+                applyingLabel="Updating…"
+                applyLabel="Update prices"
+                onApply={runPriceApply}
+              />
+            ) : null}
+            {priceStep === "done" && priceMessage ? <Alert tone="success">{priceMessage}</Alert> : null}
+            {priceError ? <Alert tone="error">{priceError}</Alert> : null}
 
-          {catMessage ? <p className="text-sm text-slate-600">{catMessage}</p> : null}
-          {catCheck ? (
-            <MophPreview
-              check={catCheck}
-              mode="catalog"
-              applyRetailPrices={applyRetailPrices}
-              onApplyRetailPrices={setApplyRetailPrices}
-              canApply={catStep === "ready"}
-              busy={catBusy}
-              applyingLabel="Importing…"
-              applyLabel="Import catalog"
-              onApply={runCatalogApply}
-            />
-          ) : null}
-          {catStep === "done" && catMessage ? (
-            <p className="text-sm text-emerald-800">{catMessage}</p>
-          ) : null}
-          {catError ? <p className="text-sm text-red-600">{catError}</p> : null}
-        </Panel>
+            <div>
+              <button type="button" className="btn btn-ghost btn-sm -ml-2" aria-expanded={showAdvanced} onClick={() => setShowAdvanced((v) => !v)}>
+                <Icon name={showAdvanced ? "chevronDown" : "chevronRight"} className="h-4 w-4" />
+                Use a downloaded price file instead
+              </button>
+              {showAdvanced ? (
+                <div className="mt-2 flex flex-wrap items-end gap-3">
+                  <FileField label="WebMarketed .xls" onFile={setPriceUploadFile} />
+                  <button type="button" disabled={anyBusy || !priceUploadFile} onClick={runPriceCheckUpload} className="btn btn-secondary">
+                    Check uploaded file
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </section>
 
-        <Panel className="shrink-0 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">2. Public price list (repeat when MoPH updates)</h2>
-          <p className="text-xs text-slate-500">
-            Uses <strong>WebMarketed</strong> only. Does not add new products — only updates prices for items
-            already in your catalog (matched by MoPH code).
-          </p>
-
-          <button
-            type="button"
-            disabled={anyBusy || !serverOk}
-            onClick={runPriceCheck}
-            className="w-full rounded-xl bg-teal-700 px-6 py-4 text-base font-semibold text-white hover:bg-teal-800 disabled:opacity-50 sm:w-auto"
-          >
-            {priceStep === "checking" ? "Checking price list…" : "Check public price list"}
-          </button>
-
-          {priceMessage ? <p className="text-sm text-slate-600">{priceMessage}</p> : null}
-
-          {priceCheck ? (
-            <MophPreview
-              check={priceCheck}
-              mode="prices_only"
-              applyRetailPrices={applyRetailPrices}
-              onApplyRetailPrices={setApplyRetailPrices}
-              canApply={priceStep === "ready"}
-              busy={priceBusy}
-              applyingLabel="Updating…"
-              applyLabel="Update prices"
-              onApply={runPriceApply}
-            />
-          ) : null}
-
-          {priceStep === "done" && priceMessage ? (
-            <p className="text-sm text-emerald-800">{priceMessage}</p>
-          ) : null}
-          {priceError ? <p className="text-sm text-red-600">{priceError}</p> : null}
-        </Panel>
-
-        <div className="shrink-0 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
-          <button
-            type="button"
-            className="text-sm font-medium text-slate-600"
-            onClick={() => setShowAdvanced((v) => !v)}
-          >
-            {showAdvanced ? "Hide" : "Show"} manual price upload
-          </button>
-          {showAdvanced ? (
-            <div className="mt-4 flex flex-wrap items-end gap-2">
-              <label className="block text-sm">
-                <span className="text-slate-600">WebMarketed .xls only</span>
-                <input
-                  type="file"
-                  accept=".xls,.xlsx"
-                  className="mt-1 block text-sm"
-                  onChange={(e) => setPriceUploadFile(e.target.files?.[0] ?? null)}
-                />
-              </label>
-              <button
-                type="button"
-                disabled={anyBusy || !priceUploadFile}
-                onClick={runPriceCheckUpload}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm"
-              >
-                Check uploaded price file
+          <section className="space-y-3">
+            <SectionHead title="2 · National catalogue" count="one-time import" />
+            <p className="text-dense text-ink-2">
+              Merges <strong>WebMarketed</strong> (codes and public prices), <strong>WebNonMarketed</strong> (codes, no price) and the{" "}
+              <strong>primary registered</strong> list. Re-import only when MoPH adds many new drugs.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <FileField label="WebMarketed .xls" onFile={(file) => setCatalogFiles((f) => ({ ...f, marketed: file }))} />
+              <FileField label="WebNonMarketed .xls" onFile={(file) => setCatalogFiles((f) => ({ ...f, nonMarketed: file }))} />
+              <FileField label="Primary registered .xlsx" onFile={(file) => setCatalogFiles((f) => ({ ...f, primaryRegistered: file }))} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={anyBusy || !serverOk} onClick={runCatalogCheckUpload} className="btn btn-secondary">
+                {catStep === "checking" ? "Checking…" : "Preview from these files"}
+              </button>
+              <button type="button" disabled={anyBusy || !serverOk} onClick={runCatalogCheckFromMoPH} className="btn btn-secondary">
+                {catStep === "checking" ? "Downloading…" : "Download from MoPH instead"}
               </button>
             </div>
-          ) : null}
+            {catMessage && catStep !== "done" ? <p className="text-dense text-ink-2">{catMessage}</p> : null}
+            {catCheck ? (
+              <MophPreview
+                check={catCheck}
+                mode="catalog"
+                applyRetailPrices={applyRetailPrices}
+                onApplyRetailPrices={setApplyRetailPrices}
+                canApply={catStep === "ready"}
+                busy={catBusy}
+                applyingLabel="Importing…"
+                applyLabel="Import catalogue"
+                onApply={runCatalogApply}
+              />
+            ) : null}
+            {catStep === "done" && catMessage ? <Alert tone="success">{catMessage}</Alert> : null}
+            {catError ? <Alert tone="error">{catError}</Alert> : null}
+          </section>
         </div>
       </ScrollBox>
     </PageShell>

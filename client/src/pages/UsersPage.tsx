@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { PageShell, ScrollBox } from "../components/PageShell";
-import { Alert, Badge, ConfirmDialog, EmptyState, Field, Modal, Spinner } from "../components/ui";
+import { Alert, Badge, ConfirmDialog, EmptyState, Field, Modal, Spinner, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api, parseServerDate, type ManagedUser, type Role } from "../lib/api";
 
@@ -60,7 +60,7 @@ export default function UsersPage() {
         {error ? <Alert tone="error">{error}</Alert> : null}
         {notice ? <Alert tone="success">{notice}</Alert> : null}
 
-        <div className="card min-h-0 flex-1 overflow-hidden">
+        <div className="sheet min-h-0 flex-1 overflow-hidden">
           <ScrollBox className="h-full">
             {!users ? (
               <Spinner className="p-6" />
@@ -81,8 +81,8 @@ export default function UsersPage() {
                   {users.map((u) => (
                     <tr key={u.id} className={u.is_active ? "" : "opacity-60"}>
                       <td>
-                        <p className="font-medium text-slate-900">{u.full_name || u.username}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="font-medium text-ink">{u.full_name || u.username}</p>
+                        <p className="text-xs text-ink-3">
                           @{u.username}
                           {u.id === me?.id ? " · you" : ""}
                         </p>
@@ -90,8 +90,8 @@ export default function UsersPage() {
                       <td>
                         <Badge tone={u.role === "owner" ? "brand" : "neutral"}>{ROLE_INFO[u.role]?.label ?? u.role}</Badge>
                       </td>
-                      <td>{u.is_active ? <Badge tone="success">Active</Badge> : <Badge tone="danger">Disabled</Badge>}</td>
-                      <td className="hidden text-slate-500 md:table-cell">
+                      <td>{u.is_active ? <Status tone="ok">Active</Status> : <Status tone="muted" icon="close">Disabled</Status>}</td>
+                      <td className="hidden font-mono text-dense text-ink-3 md:table-cell">
                         {u.last_login_at ? parseServerDate(u.last_login_at).toLocaleString() : "Never"}
                       </td>
                       <td>
@@ -213,11 +213,11 @@ function UserFormModal({ editing, onClose, onSaved }: { editing: NonNullable<Edi
               <legend className="field-label">Role</legend>
               <div className="space-y-2">
                 {(Object.keys(ROLE_INFO) as Role[]).map((r) => (
-                  <label key={r} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${role === r ? "border-brand-600 bg-brand-50" : "border-slate-200"}`}>
-                    <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} className="mt-1" />
+                  <label key={r} className={`flex cursor-pointer gap-3 rounded-sm border p-3 ${role === r ? "border-ink bg-paper" : "border-rule hover:bg-paper"}`}>
+                    <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} className="mt-1 accent-forest-700" />
                     <span>
                       <span className="block text-sm font-medium">{ROLE_INFO[r].label}</span>
-                      <span className="block text-xs text-slate-500">{ROLE_INFO[r].description}</span>
+                      <span className="block text-xs text-ink-3">{ROLE_INFO[r].description}</span>
                     </span>
                   </label>
                 ))}

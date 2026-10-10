@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { api, localToday, type AdjustmentReason, type StockBatch } from "../lib/api";
+import { ProductName } from "./ProductName";
 import { Alert, Field, Modal } from "./ui";
 
 const REASONS: { value: AdjustmentReason; label: string; direction: "remove" | "both" }[] = [
@@ -68,18 +69,18 @@ export function AdjustStockModal({ batch, onClose, onDone }: { batch: StockBatch
       }
     >
       <form id="adjust-form" onSubmit={submit} className="space-y-4">
-        <div className="rounded-lg bg-slate-50 p-3 text-sm">
-          <p className="font-medium text-slate-900">{batch.product_name}</p>
-          <p className="text-slate-500">
-            Batch #{batch.id} · expires {batch.expiry_date} · {batch.qty} in stock
+        <div className="border-l-2 border-ink bg-paper py-2 pr-3 pl-3 text-sm">
+          <ProductName name={batch.product_name} />
+          <p className="mt-0.5 text-dense text-ink-3">
+            Batch <span className="code">#{batch.id}</span> · expires <span className="code">{batch.expiry_date}</span> · {batch.qty} in stock
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" className={`btn ${direction === "remove" ? "btn-danger" : "btn-secondary"}`} onClick={() => switchDirection("remove")}>
+          <button type="button" aria-pressed={direction === "remove"} className={`btn ${direction === "remove" ? "btn-danger" : "btn-secondary"}`} onClick={() => switchDirection("remove")}>
             Remove stock
           </button>
-          <button type="button" className={`btn ${direction === "add" ? "btn-primary" : "btn-secondary"}`} onClick={() => switchDirection("add")}>
+          <button type="button" aria-pressed={direction === "add"} className={`btn ${direction === "add" ? "btn-primary" : "btn-secondary"}`} onClick={() => switchDirection("add")}>
             Add stock
           </button>
         </div>
@@ -102,7 +103,7 @@ export function AdjustStockModal({ batch, onClose, onDone }: { batch: StockBatch
           <textarea className="input min-h-20" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} />
         </Field>
 
-        <p className="text-xs text-slate-500">The adjustment is recorded in stock movements with your name and cannot be deleted.</p>
+        <p className="text-xs text-ink-3">The adjustment is recorded in stock movements with your name and cannot be deleted.</p>
         {error ? <Alert tone="error">{error}</Alert> : null}
       </form>
     </Modal>

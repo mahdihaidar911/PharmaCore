@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Icon } from "../components/icons";
 import { Pagination } from "../components/Pagination";
-import { PageShell, Panel, ScrollBox } from "../components/PageShell";
-import { Alert, Badge, EmptyState, Field } from "../components/ui";
+import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
+import { ProductName } from "../components/ProductName";
+import { Alert, EmptyState, Field, SearchInput, Spinner, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api, formatLbp, formatUsd, type PharmacySettings, type Product } from "../lib/api";
 
@@ -112,13 +114,20 @@ export default function ProductsPage() {
   return (
     <PageShell
       title="Products"
-      description="MoPH import fills names and ministry codes. Add your supplier barcode here (Edit) so POS scanning works."
+      description="The MoPH catalogue fills names and ministry codes. Add the box barcode (Edit) so the till can scan it."
+      actions={
+        canManage && !formOpen && !editingId ? (
+          <button type="button" className="btn btn-primary xl:hidden" onClick={() => setFormOpen(true)}>
+            <Icon name="plus" className="h-4 w-4" /> Add product
+          </button>
+        ) : null
+      }
     >
-      <div className={`grid min-h-0 flex-1 gap-4 overflow-hidden ${canManage ? "xl:grid-cols-[360px_1fr]" : ""}`}>
+      <div className={`grid min-h-0 flex-1 gap-5 overflow-hidden ${canManage ? "xl:grid-cols-[minmax(0,1fr)_340px]" : ""}`}>
         {canManage ? (
-          <ScrollBox className={`shrink-0 xl:block xl:max-h-full ${formOpen || editingId ? "" : "hidden"}`}>
-            <form onSubmit={handleSubmit} className="card card-body space-y-3">
-              <h3 className="card-title">{editingId ? "Edit product" : "Add product"}</h3>
+          <ScrollBox className={`order-first shrink-0 xl:order-last xl:block xl:max-h-full ${formOpen || editingId ? "" : "hidden"}`}>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <SectionHead title={editingId ? "Edit product" : "Add product"} />
               <Field label="Barcode (scanner)" hint="EAN/UPC from the box — not the MoPH ministry code">
                 <input className="input" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
               </Field>
@@ -140,11 +149,11 @@ export default function ProductsPage() {
                 />
               </Field>
               {editingId ? (
-                <label className="flex items-start gap-2 text-sm text-slate-700">
+                <label className="flex items-start gap-2 text-sm text-ink-2">
                   <input type="checkbox" className="mt-0.5 h-4 w-4" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
                   <span>
                     Active
-                    <span className="block text-xs text-slate-500">Inactive products are hidden from POS and cannot be sold. Stock and history are kept.</span>
+                    <span className="block text-xs text-ink-3">Inactive products are hidden from POS and cannot be sold. Stock and history are kept.</span>
                   </span>
                 </label>
               ) : null}
@@ -164,88 +173,91 @@ export default function ProductsPage() {
           </ScrollBox>
         ) : null}
 
-        <Panel className="flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="card-title">Catalog</h3>
-              <p className="text-sm text-slate-500">
-                {total.toLocaleString()} product{total === 1 ? "" : "s"}
-                {search.trim() ? ` matching “${search.trim()}”` : showInactive ? " (including inactive)" : ""}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              {canManage && !formOpen && !editingId ? (
-                <button type="button" className="btn btn-primary btn-sm xl:hidden" onClick={() => setFormOpen(true)}>
-                  Add product
-                </button>
-              ) : null}
-              {canManage ? (
-                <label className="flex items-center gap-2 text-sm text-slate-600">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={showInactive}
-                    onChange={(e) => {
-                      setShowInactive(e.target.checked);
-                      setPage(1);
-                    }}
-                  />
-                  Show inactive
-                </label>
-              ) : null}
-              <input
-                className="input sm:w-72"
-                placeholder="Search name, MoPH code, barcode…"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="mb-3 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
+            <SearchInput
+              label="Search products"
+              className="w-full sm:w-80"
+              placeholder="Name, MoPH code or barcode"
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+            />
+            {canManage ? (
+              <label className="flex items-center gap-2 text-dense text-ink-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-forest-700"
+                  checked={showInactive}
+                  onChange={(e) => {
+                    setShowInactive(e.target.checked);
+                    setPage(1);
+                  }}
+                />
+                Include inactive
+              </label>
+            ) : null}
+            <p className="meta ml-auto">
+              {total.toLocaleString()} product{total === 1 ? "" : "s"}
+              {search.trim() ? ` matching “${search.trim()}”` : ""}
+            </p>
           </div>
-          {!canManage && error ? <Alert tone="error" className="mt-3">{error}</Alert> : null}
+          {!canManage && error ? <Alert tone="error" className="mb-3">{error}</Alert> : null}
 
-          <ScrollBox className="mt-4 min-h-0 flex-1">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>MoPH code</th>
-                  <th>Barcode</th>
-                  <th className="text-right">USD</th>
-                  <th className="text-right">LBP</th>
-                  <th className="text-right">Stock</th>
-                  {canManage ? <th /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product) => (
-                  <tr key={product.id} className={product.is_active ? "" : "bg-slate-50 text-slate-500"}>
-                    <td className="font-medium text-slate-900">
-                      {product.name} {product.is_active ? null : <Badge tone="neutral">Inactive</Badge>}
-                    </td>
-                    <td className="font-mono text-xs text-slate-600">{product.moph_code ?? "—"}</td>
-                    <td className="text-slate-600">{product.barcode ?? "—"}</td>
-                    <td className="text-right tabular-nums">{formatUsd(product.sale_price_usd)}</td>
-                    <td className="text-right tabular-nums">{settings ? formatLbp(product.sale_price_usd * settings.exchange_rate) : "—"}</td>
-                    <td className="text-right tabular-nums">{product.total_qty}</td>
+          <div className="sheet flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ScrollBox className={`min-h-0 flex-1 ${loading ? "opacity-60" : ""}`}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th className="hidden md:table-cell">MoPH</th>
+                    <th className="hidden lg:table-cell">Barcode</th>
+                    <th className="num">Price</th>
+                    <th className="num">Stock</th>
                     {canManage ? (
-                      <td className="text-right">
-                        <button type="button" onClick={() => startEdit(product)} className="btn btn-ghost btn-sm">
-                          Edit
-                        </button>
-                      </td>
+                      <th>
+                        <span className="sr-only">Actions</span>
+                      </th>
                     ) : null}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {products.length === 0 && !loading ? <EmptyState title="No products found" /> : null}
-            {loading ? <p className="mt-4 text-sm text-slate-500">Loading…</p> : null}
-          </ScrollBox>
-          <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} disabled={loading} />
-        </Panel>
+                </thead>
+                <tbody>
+                  {products.map((product) => (
+                    <tr key={product.id} className={editingId === product.id ? "[&>td]:bg-lime-200/70" : ""}>
+                      <td className={`w-full max-w-0 min-w-56 ${product.is_active ? "" : "opacity-60"}`}>
+                        <ProductName name={product.name} />
+                        {product.is_active ? null : (
+                          <Status tone="muted" className="text-xs">
+                            Inactive — hidden from the till
+                          </Status>
+                        )}
+                      </td>
+                      <td className="code hidden text-ink-2 md:table-cell">{product.moph_code ?? "—"}</td>
+                      <td className="code hidden text-ink-2 lg:table-cell">{product.barcode ?? <span className="text-ink-4">none</span>}</td>
+                      <td className="num">
+                        <span className="block font-medium">{formatUsd(product.sale_price_usd)}</span>
+                        <span className="block text-xs text-ink-3">{settings ? formatLbp(product.sale_price_usd * settings.exchange_rate) : ""}</span>
+                      </td>
+                      <td className={`num ${product.total_qty > 0 ? "font-medium" : "text-ink-4"}`}>{product.total_qty}</td>
+                      {canManage ? (
+                        <td className="text-right">
+                          <button type="button" onClick={() => startEdit(product)} className="btn btn-ghost btn-sm">
+                            Edit
+                          </button>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {products.length === 0 && !loading ? <EmptyState title="No products found." description={search ? "Try part of the name, the MoPH code or the barcode." : undefined} /> : null}
+              {loading && products.length === 0 ? <Spinner className="p-4" /> : null}
+            </ScrollBox>
+            <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} disabled={loading} />
+          </div>
+        </div>
       </div>
     </PageShell>
   );

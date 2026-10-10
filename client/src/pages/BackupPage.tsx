@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
-import { PageShell, Panel, ScrollBox } from "../components/PageShell";
-import { Alert, Badge, ConfirmDialog, EmptyState, Field } from "../components/ui";
+import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
+import { Alert, Badge, ConfirmDialog, EmptyState, Field, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api, type BackupFile, type BackupStatus } from "../lib/api";
 
@@ -109,37 +109,37 @@ export default function BackupPage() {
       }
     >
       <ScrollBox className="min-h-0 flex-1">
-        <div className="flex max-w-4xl flex-col gap-4 pb-4">
+        <div className="flex max-w-4xl flex-col gap-8 pb-4">
           {message ? <Alert tone="success">{message}</Alert> : null}
           {error ? <Alert tone="error">{error}</Alert> : null}
 
           {status ? (
-            <div className="card card-body space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="card-title">Status</h3>
-                  <p className="text-sm text-slate-500">
-                    Last backup: <strong>{formatAge(status.age_hours)}</strong> · Automatic backups:{" "}
-                    {status.settings.auto_enabled ? `every ${status.interval_hours} h, keeping ${status.settings.keep_auto}` : "off"}
-                  </p>
-                </div>
-                <Badge tone={status.warnings.length === 0 ? "success" : status.stale ? "danger" : "warning"}>
-                  {status.warnings.length === 0 ? "Protected" : status.stale ? "At risk" : "Needs attention"}
-                </Badge>
-              </div>
+            <section className="space-y-3">
+              <SectionHead
+                title="Protection"
+                action={
+                  <Status tone={status.warnings.length === 0 ? "ok" : status.stale ? "danger" : "caution"} icon={status.warnings.length === 0 ? "check" : "alert"}>
+                    {status.warnings.length === 0 ? "Protected" : status.stale ? "At risk" : "Needs attention"}
+                  </Status>
+                }
+              />
+              <p className="text-dense text-ink-2">
+                Last backup <strong className="text-ink">{formatAge(status.age_hours)}</strong> · Automatic backups{" "}
+                {status.settings.auto_enabled ? `every ${status.interval_hours} h, keeping ${status.settings.keep_auto}` : "off"}
+              </p>
               {status.warnings.map((w) => (
                 <Alert key={w} tone={status.stale ? "error" : "warning"}>
                   {w}
                 </Alert>
               ))}
-            </div>
+            </section>
           ) : null}
 
           {canConfigure ? (
-            <form onSubmit={saveSettings} className="card card-body space-y-4">
-              <h3 className="card-title">Automatic backups</h3>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" className="h-4 w-4" checked={form.auto_enabled} onChange={(e) => setForm({ ...form, auto_enabled: e.target.checked })} />
+            <form onSubmit={saveSettings} className="space-y-4">
+              <SectionHead title="Automatic backups" />
+              <label className="flex items-center gap-2 text-sm text-ink-2">
+                <input type="checkbox" className="h-4 w-4 accent-forest-700" checked={form.auto_enabled} onChange={(e) => setForm({ ...form, auto_enabled: e.target.checked })} />
                 Back up automatically once a day while PharmaCore is running
               </label>
               <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
@@ -152,33 +152,52 @@ export default function BackupPage() {
               </div>
               {settingsError ? <Alert tone="error">{settingsError}</Alert> : null}
               {settingsMessage ? <Alert tone="success">{settingsMessage}</Alert> : null}
-              <button type="submit" className="btn btn-primary" disabled={keepInvalid}>
+              <button type="submit" className="btn btn-secondary" disabled={keepInvalid}>
                 Save backup settings
               </button>
             </form>
           ) : null}
 
-          <Panel padding={false}>
-            {backups.map((backup) => (
-              <div key={backup.filename} className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-0">
-                <div className="min-w-0">
-                  <p className="flex items-center gap-2 truncate font-medium text-slate-900">
-                    <span className="truncate">{backup.filename}</span>
-                    <Badge tone={KIND_LABEL[backup.kind].tone}>{KIND_LABEL[backup.kind].label}</Badge>
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {new Date(backup.created_at).toLocaleString()} · {formatSize(backup.size_bytes)}
-                  </p>
-                </div>
-                {can("backup.restore") ? (
-                  <button type="button" onClick={() => setRestoring(backup.filename)} className="btn btn-secondary btn-sm">
-                    Restore
-                  </button>
-                ) : null}
-              </div>
-            ))}
-            {backups.length === 0 ? <EmptyState title="No backups yet" description="Create one now, then copy it somewhere safe." /> : null}
-          </Panel>
+          <section>
+            <SectionHead title="Backups on this computer" count={backups.length} />
+            {backups.length === 0 ? (
+              <EmptyState title="No backups yet" description="Create one now, then copy it somewhere safe." />
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Kind</th>
+                    <th className="hidden sm:table-cell">Created</th>
+                    <th className="num hidden md:table-cell">Size</th>
+                    {can("backup.restore") ? <th className="w-px" /> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {backups.map((backup) => (
+                    <tr key={backup.filename}>
+                      <td className="w-full max-w-0">
+                        <p className="code truncate text-ink">{backup.filename}</p>
+                        <p className="meta sm:hidden">{new Date(backup.created_at).toLocaleString()}</p>
+                      </td>
+                      <td>
+                        <Badge tone={KIND_LABEL[backup.kind].tone}>{KIND_LABEL[backup.kind].label}</Badge>
+                      </td>
+                      <td className="hidden whitespace-nowrap font-mono text-dense text-ink-2 sm:table-cell">{new Date(backup.created_at).toLocaleString()}</td>
+                      <td className="num hidden whitespace-nowrap md:table-cell">{formatSize(backup.size_bytes)}</td>
+                      {can("backup.restore") ? (
+                        <td>
+                          <button type="button" onClick={() => setRestoring(backup.filename)} className="btn btn-secondary btn-sm">
+                            Restore
+                          </button>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
         </div>
       </ScrollBox>
 

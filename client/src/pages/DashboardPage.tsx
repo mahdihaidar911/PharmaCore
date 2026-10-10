@@ -1,16 +1,71 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "../components/icons";
-import { PageShell, ScrollBox } from "../components/PageShell";
-import { Alert, EmptyState, Spinner, StatCard } from "../components/ui";
+import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
+import { ProductName } from "../components/ProductName";
+import { Alert, EmptyState, Spinner, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
-import { api, formatLbp, formatUsd, type BackupStatus, type DashboardReport } from "../lib/api";
+import { api, formatLbp, formatUsd, type DashboardReport } from "../lib/api";
+import { daysUntil, expiryStatus } from "../lib/expiry";
 
-function daysUntil(isoDate: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((new Date(`${isoDate}T00:00:00`).getTime() - today.getTime()) / 86_400_000);
+const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+
+function Strong({ tone, children }: { tone?: "danger" | "caution"; children: ReactNode }) {
+  const color = tone === "danger" ? "text-danger" : tone === "caution" ? "text-caution" : "text-ink";
+  return <strong className={`font-semibold ${color}`}>{children}</strong>;
+}
+
+/** One-paragraph answer to "how is today going?" built only from the report figures. */
+function Standfirst({ report }: { report: DashboardReport }) {
+  const s = report.salesToday;
+  const outOfStock = report.outOfStockTotal;
+  const low = report.lowStockTotal;
+  return (
+    <p className="max-w-4xl font-serif text-xl leading-relaxed text-ink-2">
+      {s ? (
+        s.sale_count === 0 ? (
+          <>No sales yet today. </>
+        ) : (
+          <>
+            <Strong>{plural(s.sale_count, "sale", "sales")}</Strong> so far, <Strong>{formatUsd(s.total_usd)}</Strong> after discounts
+            {s.total_lbp > 0 ? <> ({formatLbp(s.total_lbp)})</> : null}.{" "}
+          </>
+        )
+      ) : null}
+      {low === 0 ? (
+        <>Every product is above its minimum stock. </>
+      ) : (
+        <>
+          <Strong tone="caution">{plural(low, "product is", "products are")}</Strong> at or below minimum
+          {outOfStock > 0 ? (
+            <>
+              , <Strong tone="danger">{plural(outOfStock, "of them", "of them")} out of stock</Strong>
+            </>
+          ) : null}
+          .{" "}
+        </>
+      )}
+      {report.expiredTotal > 0 ? (
+        <>
+          <Strong tone="danger">{plural(report.expiredTotal, "batch has", "batches have")} expired</Strong> and must be removed from the shelf
+          {report.nearExpiryTotal > 0 ? (
+            <>
+              ; <Strong tone="caution">{report.nearExpiryTotal}</Strong> more expire within 90 days.
+            </>
+          ) : (
+            "."
+          )}
+        </>
+      ) : report.nearExpiryTotal > 0 ? (
+        <>
+          <Strong tone="caution">{plural(report.nearExpiryTotal, "batch expires", "batches expire")}</Strong> within 90 days.
+        </>
+      ) : (
+        <>No batch expires in the next 90 days.</>
+      )}
+    </p>
+  );
 }
 
 export default function DashboardPage() {
@@ -20,30 +75,26 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const pharmacyName = settings?.name?.trim() || "PharmaCore Pharmacy";
 
-  const [backup, setBackup] = useState<BackupStatus | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState<boolean | null>(null);
-
   useEffect(() => {
     api
       .getDashboardReport()
       .then(setReport)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load dashboard"));
-    if (can("backup.create")) api.getBackupStatus().then(setBackup).catch(() => setBackup(null));
-    if (can("cash.drawer")) api.getCurrentShift().then((cur) => setDrawerOpen(Boolean(cur.shift))).catch(() => setDrawerOpen(null));
-  }, [can]);
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load today's summary"));
+  }, []);
 
-  const expiryAlerts = report ? [...report.expired, ...report.nearExpiry].slice(0, 8) : [];
+  const expiryAlerts = report ? [...report.expired, ...report.nearExpiry].slice(0, 10) : [];
+  const dateLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <PageShell
-      title={pharmacyName}
-      description={`Today · ${report?.date ?? ""}`}
+      eyebrow={`${pharmacyName} · ${dateLabel}`}
+      title="Today"
       actions={
         <div className="flex flex-wrap gap-2">
           {can("ai.use") ? (
             <Link to="/assistant?tab=analyze" className="btn btn-secondary">
               <Icon name="assistant" className="h-4 w-4" />
-              Analyze business
+              Analyse business
             </Link>
           ) : null}
           {can("pos.sell") ? (
@@ -55,129 +106,155 @@ export default function DashboardPage() {
       }
     >
       {error ? <Alert tone="error">{error}</Alert> : null}
-      {drawerOpen === false ? (
-        <Alert tone="warning" title="Cash drawer is closed">
-          Open a shift before the first sale.{" "}
-          <Link to="/cash" className="font-medium underline">
-            Open drawer
-          </Link>
-        </Alert>
-      ) : null}
-      {backup && (backup.stale || backup.last_run?.status === "failed" || backup.last_run?.copy_status === "failed") ? (
-        <Alert tone={backup.stale ? "error" : "warning"} title="Backups need attention">
-          {backup.warnings.filter((w) => !/only on this computer/.test(w)).join(" ")}{" "}
-          <Link to="/backup" className="font-medium underline">
-            Open Backup
-          </Link>
-        </Alert>
-      ) : null}
 
       <ScrollBox className="min-h-0 flex-1">
         {!report && !error ? <Spinner className="p-4" /> : null}
         {report ? (
-          <div className="space-y-4 pb-2">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {report.salesToday ? (
-                <>
-                  <StatCard label="Sales today" value={report.salesToday.sale_count} hint="Completed invoices" />
-                  <StatCard
-                    label="Revenue today"
-                    value={formatUsd(report.salesToday.total_usd)}
-                    hint={report.salesToday.total_lbp > 0 ? formatLbp(report.salesToday.total_lbp) : "After discounts"}
-                  />
-                </>
-              ) : null}
-              <StatCard
-                label="Low stock"
-                value={report.lowStockTotal}
-                hint={`${report.outOfStockTotal} out of stock`}
-                tone={report.outOfStockTotal > 0 ? "danger" : report.lowStockTotal > 0 ? "warning" : "neutral"}
-              />
-              <StatCard
-                label="Expiry alerts"
-                value={report.nearExpiryTotal + report.expiredTotal}
-                hint={`${report.expiredTotal} expired · ${report.nearExpiryTotal} within 90 days`}
-                tone={report.expiredTotal > 0 ? "danger" : report.nearExpiryTotal > 0 ? "warning" : "neutral"}
-              />
-            </div>
+          <div className="space-y-7 pb-4">
+            <Standfirst report={report} />
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <section className="card">
-                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-                  <h3 className="card-title">Expiry alerts</h3>
-                  <Link to="/inventory" className="text-sm font-medium text-brand-700 hover:underline">
-                    Inventory →
-                  </Link>
-                </div>
+            <div className="grid gap-x-8 gap-y-7 lg:grid-cols-2">
+              <section aria-labelledby="q-expiry">
+                <SectionHead
+                  id="q-expiry"
+                  title="What must come off the shelf soon?"
+                  count={report.expiredTotal + report.nearExpiryTotal}
+                  action={
+                    can("inventory.view") ? (
+                      <Link to="/inventory" className="text-dense font-medium text-forest-700 hover:underline">
+                        Inventory
+                      </Link>
+                    ) : null
+                  }
+                />
                 {expiryAlerts.length === 0 ? (
-                  <EmptyState title="No batches expiring in the next 90 days" />
+                  <EmptyState title="No batches expire in the next 90 days." />
                 ) : (
-                  <ul className="divide-y divide-slate-100">
-                    {expiryAlerts.map((b) => {
-                      const days = daysUntil(b.expiry_date);
-                      return (
-                        <li key={b.id} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
-                          <span className="min-w-0 truncate font-medium text-slate-800">{b.product_name}</span>
-                          <span className="flex shrink-0 items-center gap-2">
-                            <span className="text-slate-500">{b.qty} units</span>
-                            <span className={`badge ${days <= 0 ? "badge-danger" : days <= 30 ? "badge-warning" : "badge-neutral"}`}>
-                              {days <= 0 ? "Expired" : `${days} days`}
-                            </span>
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <table className="data-table">
+                    <thead className="sr-only">
+                      <tr>
+                        <th>Product</th>
+                        <th>Units</th>
+                        <th>Expiry</th>
+                        <th>State</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expiryAlerts.map((b) => {
+                        const st = expiryStatus(daysUntil(b.expiry_date));
+                        return (
+                          <tr key={b.id}>
+                            <td className="w-full max-w-0 !pl-0">
+                              <ProductName name={b.product_name} />
+                            </td>
+                            <td className="num text-ink-2">{b.qty} u</td>
+                            <td className="num code text-ink-2">{b.expiry_date}</td>
+                            <td className="!pr-0 text-right">
+                              <Status tone={st.tone}>{st.label}</Status>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 )}
               </section>
 
-              <section className="card">
-                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-                  <h3 className="card-title">Low stock</h3>
-                  {can("inventory.receive") ? (
-                    <Link to="/receive" className="text-sm font-medium text-brand-700 hover:underline">
-                      Receive stock →
-                    </Link>
-                  ) : null}
-                </div>
+              <section aria-labelledby="q-reorder">
+                <SectionHead
+                  id="q-reorder"
+                  title="What should be reordered?"
+                  count={report.lowStockTotal}
+                  action={
+                    can("inventory.receive") ? (
+                      <Link to="/receive" className="text-dense font-medium text-forest-700 hover:underline">
+                        Receive stock
+                      </Link>
+                    ) : null
+                  }
+                />
                 {report.lowStock.length === 0 ? (
-                  <EmptyState title="All stocked products are above their minimum" />
+                  <EmptyState title="Every product is above its minimum stock." />
                 ) : (
-                  <ul className="divide-y divide-slate-100">
-                    {report.lowStock.slice(0, 8).map((p) => (
-                      <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
-                        <span className="min-w-0 truncate font-medium text-slate-800">{p.name}</span>
-                        <span className={`badge shrink-0 ${p.total_qty === 0 ? "badge-danger" : "badge-warning"}`}>
-                          {p.total_qty} / min {p.min_stock}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <table className="data-table">
+                    <thead className="sr-only">
+                      <tr>
+                        <th>Product</th>
+                        <th>On hand / minimum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.lowStock.slice(0, 10).map((p) => (
+                        <tr key={p.id}>
+                          <td className="w-full max-w-0 !pl-0">
+                            <ProductName name={p.name} />
+                          </td>
+                          <td className="!pr-0 text-right">
+                            {p.total_qty === 0 ? (
+                              <Status tone="danger">Out of stock</Status>
+                            ) : (
+                              <Status tone="caution" icon="alert">
+                                {p.total_qty} left <span className="font-normal text-ink-3">of min {p.min_stock}</span>
+                              </Status>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </section>
 
               {report.topProducts ? (
-                <section className="card lg:col-span-2">
-                  <div className="border-b border-slate-100 px-5 py-3">
-                    <h3 className="card-title">Today's top products</h3>
-                  </div>
+                <section aria-labelledby="q-sold">
+                  <SectionHead id="q-sold" title="What sold today?" />
                   {report.topProducts.length === 0 ? (
-                    <EmptyState title="No sales yet today" />
+                    <EmptyState title="No sales yet today." />
                   ) : (
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>Product</th>
-                          <th className="text-right">Units</th>
-                          <th className="text-right">Revenue</th>
+                          <th className="!pl-0">Product</th>
+                          <th className="num">Units</th>
+                          <th className="num !pr-0">Revenue</th>
                         </tr>
                       </thead>
                       <tbody>
                         {report.topProducts.map((p) => (
                           <tr key={p.name}>
-                            <td>{p.name}</td>
-                            <td className="text-right tabular-nums">{p.qty_sold}</td>
-                            <td className="text-right tabular-nums">{formatUsd(p.revenue_usd)}</td>
+                            <td className="w-full max-w-0 !pl-0">
+                              <ProductName name={p.name} inline className="block truncate" />
+                            </td>
+                            <td className="num">{p.qty_sold}</td>
+                            <td className="num !pr-0 font-medium">{formatUsd(p.revenue_usd)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+              ) : null}
+
+              {report.salesByCashier ? (
+                <section aria-labelledby="q-who">
+                  <SectionHead id="q-who" title="Who has been selling?" />
+                  {report.salesByCashier.length === 0 ? (
+                    <EmptyState title="No sales yet today." />
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="!pl-0">Cashier</th>
+                          <th className="num">Sales</th>
+                          <th className="num !pr-0">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.salesByCashier.map((c) => (
+                          <tr key={c.username ?? "unknown"}>
+                            <td className="!pl-0 font-medium">{c.username ?? "Unknown"}</td>
+                            <td className="num">{c.sale_count}</td>
+                            <td className="num !pr-0 font-medium">{formatUsd(c.total_usd)}</td>
                           </tr>
                         ))}
                       </tbody>

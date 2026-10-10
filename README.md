@@ -199,7 +199,7 @@ The server serves the built client from `client/dist` at http://localhost:4000.
 ## Testing
 
 ```bash
-npm test           # 84 automated tests, in-memory database, no network
+npm test           # 87 automated tests, in-memory database, no network
 npm run typecheck
 ```
 
@@ -207,24 +207,37 @@ What is covered and the manual checklist: [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Screenshots
 
-Cash drawer, owner view: expected cash per currency and where it came from (demo data)
+Demo data on a copy of the MoPH catalogue. The visual system (type, colour, components) is described in
+[`docs/DESIGN.md`](docs/DESIGN.md).
 
-![Cash drawer](docs/screenshots/cash-drawer.png)
+Point of sale, cashier signed in: numbered cart, last-added line marked, total band and tender
 
-Cashier view of the same shift: blind count, no expected amounts
+![POS](docs/screenshots/pos.png)
 
-![Cash drawer, cashier](docs/screenshots/cash-drawer-cashier.png)
-
-POS on a landscape tablet, and held sales
+POS on a 1024 px tablet while searching; expired and empty batches are shown as not sellable
 
 ![POS tablet](docs/screenshots/pos-tablet.png)
-![Held sales](docs/screenshots/pos-held-sales.png)
 
-Dashboard, backups, and the catalog on a portrait tablet
+Today: a written summary of the day, then what must come off the shelf and what to reorder
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Today](docs/screenshots/today.png)
+
+Inventory by batch, filtered and sorted by expiry
+
+![Inventory](docs/screenshots/inventory.png)
+
+Reports, answering one question per section
+
+![Reports](docs/screenshots/reports.png)
+
+Cash drawer, owner view, and the cashier's blind-count view of the same shift
+
+![Cash drawer](docs/screenshots/cash-drawer.png)
+![Cash drawer, cashier](docs/screenshots/cash-drawer-cashier.png)
+
+Backups
+
 ![Backup](docs/screenshots/backup.png)
-![Products on tablet](docs/screenshots/products-tablet.png)
 
 ## Known limitations
 

@@ -1,24 +1,45 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { Icon, type IconName } from "./icons";
 
 type Tone = "info" | "success" | "warning" | "error";
+
+const ALERT_ICON: Record<Tone, IconName> = { info: "info", success: "check", warning: "alert", error: "alert" };
 
 export function Alert({ tone = "info", title, children, className = "" }: { tone?: Tone; title?: string; children?: ReactNode; className?: string }) {
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`alert alert-${tone} ${className}`.trim()}>
-      {title ? <p className="font-semibold">{title}</p> : null}
-      {children ? <div className={title ? "mt-0.5" : ""}>{children}</div> : null}
+      <Icon name={ALERT_ICON[tone]} className="mt-px h-4 w-4" />
+      <div className="min-w-0">
+        {title ? <p className="font-semibold">{title}</p> : null}
+        {children ? <div className={title ? "mt-0.5" : ""}>{children}</div> : null}
+      </div>
     </div>
   );
 }
 
+/** A tag for record kinds and roles. For states (expired, low, open) use Status. */
 export function Badge({ tone = "neutral", children }: { tone?: "neutral" | "brand" | "success" | "warning" | "danger"; children: ReactNode }) {
   return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
+type StatusTone = "ok" | "caution" | "danger" | "muted";
+const STATUS_ICON: Record<StatusTone, IconName | null> = { ok: "check", caution: "clock", danger: "alert", muted: null };
+
+/** A state written as icon + word. Colour reinforces the word; it never carries the meaning alone. */
+export function Status({ tone, icon, children, className = "" }: { tone: StatusTone; icon?: IconName | null; children: ReactNode; className?: string }) {
+  const glyph = icon === undefined ? STATUS_ICON[tone] : icon;
+  return (
+    <span className={`status status-${tone} ${className}`.trim()}>
+      {glyph ? <Icon name={glyph} className="h-3.5 w-3.5" /> : null}
+      {children}
+    </span>
+  );
+}
+
 export function Spinner({ label = "Loading…", className = "" }: { label?: string; className?: string }) {
   return (
-    <div className={`flex items-center gap-2 text-sm text-slate-500 ${className}`.trim()} role="status">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600" aria-hidden />
+    <div className={`flex items-center gap-2 text-sm text-ink-3 ${className}`.trim()} role="status">
+      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-rule border-t-ink-2 motion-reduce:animate-none" aria-hidden />
       {label}
     </div>
   );
@@ -26,14 +47,18 @@ export function Spinner({ label = "Loading…", className = "" }: { label?: stri
 
 export function EmptyState({ title, description, action }: { title: string; description?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
-      <p className="font-medium text-slate-700">{title}</p>
-      {description ? <p className="mt-1 max-w-md text-sm text-slate-500">{description}</p> : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+    <div className="px-4 py-8">
+      <p className="font-medium text-ink-2">{title}</p>
+      {description ? <p className="mt-1 max-w-md text-dense text-ink-3">{description}</p> : null}
+      {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
 }
 
+/**
+ * A headline number set like a ledger entry: kicker label over a ruled line, serif figure, plain hint.
+ * Laid out in rows by the page (see FigureRow); never boxed as a card.
+ */
 export function StatCard({
   label,
   value,
@@ -45,19 +70,23 @@ export function StatCard({
   hint?: ReactNode;
   tone?: "neutral" | "warning" | "danger" | "success";
 }) {
-  const accent = {
-    neutral: "border-slate-200",
-    warning: "border-amber-300",
-    danger: "border-red-300",
-    success: "border-emerald-300",
-  }[tone];
+  const valueColor = { neutral: "text-ink", success: "text-forest-800", warning: "text-caution", danger: "text-danger" }[tone];
+  const flag = tone === "warning" || tone === "danger" ? <Icon name="alert" className={`h-3.5 w-3.5 ${valueColor}`} /> : null;
   return (
-    <div className={`card card-body border-l-4 ${accent}`}>
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-1.5 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+    <div className="min-w-0 border-t-2 border-ink pt-2">
+      <p className="kicker flex items-center gap-1.5">
+        {label}
+        {flag}
+      </p>
+      <p className={`mt-1.5 font-serif text-[1.75rem] leading-none font-semibold ${valueColor}`}>{value}</p>
+      {hint ? <p className="mt-1.5 text-xs text-ink-3">{hint}</p> : null}
     </div>
   );
+}
+
+/** Lays StatCards out as a ruled row of figures. */
+export function FigureRow({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-4 ${className}`.trim()}>{children}</div>;
 }
 
 export function Field({ label, hint, error, children }: { label: string; hint?: ReactNode; error?: string | null; children: ReactNode }) {
@@ -65,10 +94,48 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
     <label className="block">
       <span className="field-label">{label}</span>
       {children}
-      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : hint ? <p className="field-hint">{hint}</p> : null}
+      {error ? (
+        <p className="mt-1 flex items-center gap-1 text-xs text-danger">
+          <Icon name="alert" className="h-3.5 w-3.5" />
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="field-hint">{hint}</p>
+      ) : null}
     </label>
   );
 }
+
+/** Text search with a leading icon; used for every list filter so they look and behave the same. */
+export function SearchInput({
+  value,
+  onChange,
+  placeholder,
+  label,
+  className = "",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div className={`relative ${className}`.trim()}>
+      <Icon name="search" className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-ink-3" />
+      <input
+        type="search"
+        aria-label={label}
+        className="input pl-8"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Modal({
   open,
@@ -86,37 +153,67 @@ export function Modal({
   size?: "sm" | "md" | "lg";
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    const first = panelRef.current?.querySelector<HTMLElement>("input, select, textarea, button[data-autofocus]");
-    first?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    const returnTo = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    const onKey = (e: KeyboardEvent) => {
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      if (dialogs[dialogs.length - 1] !== panel) return;
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const items = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    const initial =
+      panel?.querySelector<HTMLElement>("[data-autofocus]") ??
+      panel?.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), textarea:not([disabled])") ??
+      panel?.querySelector<HTMLElement>(FOCUSABLE);
+    initial?.focus();
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      if (returnTo && document.contains(returnTo)) returnTo.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
-  const width = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-3xl" }[size];
+  const width = { sm: "sm:max-w-sm", md: "sm:max-w-lg", lg: "sm:max-w-3xl" }[size];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-0 sm:items-center sm:p-4" onMouseDown={onClose}>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`flex max-h-[90vh] w-full ${width} flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl`}
+        className={`flex max-h-[90vh] w-full ${width} flex-col overflow-hidden rounded-t-md border border-rule-strong bg-paper-0 shadow-overlay sm:rounded-md`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
-            ✕
+        <div className="flex items-center justify-between gap-3 border-b border-rule px-5 py-3">
+          <h2 className="font-serif text-lg font-semibold text-ink">{title}</h2>
+          <button type="button" className="btn btn-ghost btn-sm btn-icon -mr-2" onClick={onClose} aria-label="Close">
+            <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
-        {footer ? <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">{footer}</div> : null}
+        {footer ? <div className="flex justify-end gap-2 border-t border-rule bg-paper px-5 py-3">{footer}</div> : null}
       </div>
     </div>
   );
@@ -149,12 +246,12 @@ export function ConfirmDialog({
       size="sm"
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
+          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy} data-autofocus={destructive ? true : undefined}>
             Cancel
           </button>
           <button
             type="button"
-            data-autofocus
+            data-autofocus={destructive ? undefined : true}
             className={`btn ${destructive ? "btn-danger" : "btn-primary"}`}
             onClick={onConfirm}
             disabled={busy}
@@ -164,17 +261,17 @@ export function ConfirmDialog({
         </>
       }
     >
-      <div className="text-sm text-slate-600">{message}</div>
+      <div className="text-sm text-ink-2">{message}</div>
     </Modal>
   );
 }
 
 export function NoAccess({ what = "this page" }: { what?: string }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="card card-body max-w-md text-center">
-        <p className="text-lg font-semibold text-slate-900">No access</p>
-        <p className="mt-2 text-sm text-slate-500">
+    <div className="flex h-full items-start justify-center pt-16">
+      <div className="max-w-md border-t-2 border-ink pt-3">
+        <p className="font-serif text-xl font-semibold text-ink">No access</p>
+        <p className="mt-2 text-sm text-ink-2">
           Your role does not have permission to open {what}. Ask the pharmacy owner if you need access.
         </p>
       </div>

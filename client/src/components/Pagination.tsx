@@ -1,3 +1,5 @@
+import { Icon } from "./icons";
+
 type Props = {
   page: number;
   totalPages: number;
@@ -14,35 +16,40 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, di
   const to = Math.min(page * pageSize, total);
 
   return (
-    <div className="flex shrink-0 flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-slate-600">
-        Showing <strong>{from.toLocaleString()}</strong>–<strong>{to.toLocaleString()}</strong> of{" "}
-        <strong>{total.toLocaleString()}</strong>
-        {totalPages > 1 ? (
-          <>
-            {" "}
-            · page {page} of {totalPages}
-          </>
-        ) : null}
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-rule px-4 py-2 text-dense">
+      <p className="text-ink-2">
+        <span className="font-medium text-ink">
+          {from.toLocaleString()}–{to.toLocaleString()}
+        </span>{" "}
+        of {total.toLocaleString()}
       </p>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={disabled || page <= 1}
-          onClick={() => onPageChange(page - 1)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          disabled={disabled || page >= totalPages}
-          onClick={() => onPageChange(page + 1)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
+      {totalPages > 1 ? (
+        <div className="flex items-center gap-2">
+          <span className="meta">
+            Page {page} of {totalPages}
+          </span>
+          <div className="flex">
+            <button
+              type="button"
+              disabled={disabled || page <= 1}
+              onClick={() => onPageChange(page - 1)}
+              className="btn btn-secondary btn-sm btn-icon rounded-r-none"
+              aria-label="Previous page"
+            >
+              <Icon name="chevronRight" className="h-4 w-4 rotate-180" />
+            </button>
+            <button
+              type="button"
+              disabled={disabled || page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+              className="btn btn-secondary btn-sm btn-icon -ml-px rounded-l-none"
+              aria-label="Next page"
+            >
+              <Icon name="chevronRight" className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

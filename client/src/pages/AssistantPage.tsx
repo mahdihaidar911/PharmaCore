@@ -40,7 +40,7 @@ export default function AssistantPage() {
       }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="flex shrink-0 gap-1 self-start rounded-xl bg-slate-200/70 p-1" role="tablist">
+        <div className="segmented shrink-0 self-start" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.id}

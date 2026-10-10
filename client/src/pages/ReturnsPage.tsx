@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Icon } from "../components/icons";
 import { PageShell, ScrollBox } from "../components/PageShell";
+import { ProductName } from "../components/ProductName";
+import { Alert, EmptyState, Status } from "../components/ui";
 import { api, formatLbp, formatUsd, parseServerDate, usdToLbp, type SaleDetail } from "../lib/api";
 
 export default function ReturnsPage() {
@@ -101,101 +104,124 @@ export default function ReturnsPage() {
   }
 
   return (
-    <PageShell title="Returns" description="Find a sale and return items to stock.">
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4 overflow-hidden">
-      <div className="flex shrink-0 gap-2">
-        <input
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2"
-          placeholder="Sale / invoice ID"
-          value={saleId}
-          onChange={(e) => setSaleId(e.target.value)}
-        />
-        <button
-          type="button"
-          onClick={() => loadSale()}
-          className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white"
+    <PageShell title="Returns" description="Load the invoice, choose what comes back, and record the refund. Returned units go back to their original batch.">
+      <div className="flex h-full min-h-0 w-full max-w-4xl flex-col gap-4 overflow-hidden">
+        <form
+          className="flex shrink-0 items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void loadSale();
+          }}
         >
-          Load
-        </button>
-      </div>
-
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {message ? <p className="text-sm text-teal-700">{message}</p> : null}
-
-      <ScrollBox className="min-h-0 flex-1">
-      {sale ? (
-        <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="font-semibold">Invoice #{sale.sale.id}</h3>
-          <p className="text-sm text-slate-500">{parseServerDate(sale.sale.created_at).toLocaleString()}</p>
-
-          <div className="mt-4 space-y-3">
-            {sale.lines.map((line) => {
-              const returnable = line.qty - line.qty_returned;
-              return (
-                <div key={line.id} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3">
-                  <div>
-                    <p className="font-medium">{line.product_name}</p>
-                    <p className="text-xs text-slate-500">
-                      Sold: {line.qty} · Returned: {line.qty_returned} · Returnable: {returnable}
-                    </p>
-                  </div>
-                  <input
-                    type="number"
-                    min={0}
-                    max={returnable}
-                    className="w-20 rounded border border-slate-300 px-2 py-1"
-                    value={returnQty[line.id] ?? "0"}
-                    disabled={returnable === 0}
-                    onChange={(e) => setReturnQty({ ...returnQty, [line.id]: e.target.value })}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="mt-4 text-sm">
-            Expected refund: <strong>{formatUsd(expectedRefund)}</strong> ({formatLbp(usdToLbp(expectedRefund, rate))})
-          </p>
-
-          <div className="mt-2 flex gap-2">
-            <button type="button" onClick={() => fillRefund("usd")} className="btn btn-secondary btn-sm">
-              Refund all in USD
-            </button>
-            <button type="button" onClick={() => fillRefund("lbp")} className="btn btn-secondary btn-sm">
-              Refund all in LBP
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              Refund USD
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={refundUsd}
-                onChange={(e) => setRefundUsd(e.target.value)}
-              />
-            </label>
-            <label className="text-sm">
-              Refund LBP
-              <input
-                type="number"
-                min={0}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={refundLbp}
-                onChange={(e) => setRefundLbp(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <button type="submit" className="mt-5 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white">
-            Process return
+          <label className="block">
+            <span className="field-label">Invoice number</span>
+            <input className="input w-48 font-mono" inputMode="numeric" placeholder="e.g. 1042" value={saleId} onChange={(e) => setSaleId(e.target.value)} />
+          </label>
+          <button type="submit" className="btn btn-secondary">
+            Load invoice
           </button>
         </form>
-      ) : null}
-      </ScrollBox>
+
+        {error ? <Alert tone="error">{error}</Alert> : null}
+        {message ? <Alert tone="success">{message}</Alert> : null}
+
+        <ScrollBox className="min-h-0 flex-1">
+          {sale ? (
+            <form onSubmit={handleSubmit} className="sheet">
+              <div className="border-b border-rule px-5 py-3">
+                <p className="meta">{parseServerDate(sale.sale.created_at).toLocaleString()}</p>
+                <h2 className="font-serif text-xl font-semibold">
+                  Invoice <span className="font-mono">#{sale.sale.id}</span>
+                  <span className="ml-3 font-sans text-sm font-normal text-ink-2">{formatUsd(sale.sale.total_usd)} paid</span>
+                </h2>
+              </div>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th className="num">Sold</th>
+                    <th className="num">Already returned</th>
+                    <th className="num">Return now</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sale.lines.map((line) => {
+                    const returnable = line.qty - line.qty_returned;
+                    const value = Number(returnQty[line.id] ?? 0);
+                    const over = value > returnable;
+                    return (
+                      <tr key={line.id}>
+                        <td className="w-full max-w-0">
+                          <ProductName name={line.product_name} />
+                        </td>
+                        <td className="num">{line.qty}</td>
+                        <td className="num text-ink-2">{line.qty_returned}</td>
+                        <td className="num">
+                          {returnable === 0 ? (
+                            <Status tone="muted">All returned</Status>
+                          ) : (
+                            <span className="inline-flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                max={returnable}
+                                aria-label={`Units of ${line.product_name} to return`}
+                                className={`input min-h-8 w-20 py-1 text-right ${over ? "input-invalid" : ""}`}
+                                value={returnQty[line.id] ?? "0"}
+                                onChange={(e) => setReturnQty({ ...returnQty, [line.id]: e.target.value })}
+                                onFocus={(e) => e.currentTarget.select()}
+                              />
+                              <span className="meta w-12 text-left">of {returnable}</span>
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div className="grid gap-5 px-5 py-4 md:grid-cols-[1fr_1.2fr]">
+                <div>
+                  <p className="kicker">Refund due</p>
+                  <p className="mt-1 font-serif text-3xl font-semibold">{formatUsd(expectedRefund)}</p>
+                  <p className="font-mono text-dense text-ink-2">{formatLbp(usdToLbp(expectedRefund, rate))}</p>
+                  <p className="meta mt-1">Includes the invoice discount share. Rate of the original sale.</p>
+                </div>
+                <div className="space-y-2">
+                  {(["usd", "lbp"] as const).map((cur) => (
+                    <div key={cur} className="flex items-stretch">
+                      <label htmlFor={`refund-${cur}`} className="flex w-14 shrink-0 items-center justify-center rounded-l-sm border border-r-0 border-line-input bg-paper-2 font-mono text-xs font-medium text-ink-2">
+                        {cur.toUpperCase()}
+                      </label>
+                      <input
+                        id={`refund-${cur}`}
+                        type="number"
+                        min={0}
+                        step={cur === "usd" ? "0.01" : "1"}
+                        placeholder="0"
+                        className="input rounded-none text-right"
+                        value={cur === "usd" ? refundUsd : refundLbp}
+                        onChange={(e) => (cur === "usd" ? setRefundUsd(e.target.value) : setRefundLbp(e.target.value))}
+                      />
+                      <button type="button" onClick={() => fillRefund(cur)} disabled={expectedRefund <= 0} className="btn btn-secondary shrink-0 rounded-l-none border-l-0 text-dense">
+                        All in {cur.toUpperCase()}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end border-t border-rule bg-paper px-5 py-3">
+                <button type="submit" className="btn btn-primary" disabled={expectedRefund <= 0}>
+                  <Icon name="returns" className="h-4 w-4" /> Process return
+                </button>
+              </div>
+            </form>
+          ) : (
+            <EmptyState title="No invoice loaded." description="Type the invoice number from the receipt, or open the invoice from Sales history and choose “Return items”." />
+          )}
+        </ScrollBox>
       </div>
     </PageShell>
   );
