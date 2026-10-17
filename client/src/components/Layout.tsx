@@ -208,7 +208,7 @@ export default function Layout() {
 
       <nav className={`min-h-0 flex-1 overflow-y-auto pt-2 pb-3 ${expanded ? "px-3" : "px-2"}`} style={{ scrollbarWidth: "none" }}>
         {groups.map((group, gi) => (
-          <div key={group.title} className={gi > 0 ? (expanded ? "mt-4" : "mt-2 border-t border-frame-line pt-2") : ""}>
+          <div key={group.title} className={gi > 0 ? (expanded ? "mt-4 [@media(max-height:860px)]:mt-2.5" : "mt-2 border-t border-frame-line pt-2") : ""}>
             {expanded ? <p className="px-2.5 pb-1 text-2xs font-semibold tracking-[0.1em] text-frame-fg-2/80 uppercase">{group.title}</p> : null}
             {group.items.map((item) => (
               <NavLink
@@ -218,7 +218,7 @@ export default function Layout() {
                 title={expanded ? undefined : item.label}
                 aria-label={expanded ? undefined : item.label}
                 className={({ isActive }) =>
-                  `group relative flex h-9 items-center gap-3 rounded-sm text-dense transition-colors ${expanded ? "px-2.5" : "justify-center"} ${
+                  `group relative flex h-9 items-center [@media(max-height:860px)]:h-8 gap-3 rounded-sm text-dense transition-colors ${expanded ? "px-2.5" : "justify-center"} ${
                     isActive
                       ? "bg-frame-3 font-semibold text-frame-fg before:absolute before:inset-y-2 before:left-0 before:w-[2px] before:rounded-full before:bg-signal"
                       : "text-frame-fg-2 hover:bg-frame-2 hover:text-frame-fg"

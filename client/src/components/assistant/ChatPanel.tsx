@@ -76,7 +76,7 @@ export function ChatPanel({ configured }: { configured: boolean }) {
 
         {turns.length === 0 ? (
           <div className="max-w-2xl py-2">
-            <p className="font-serif text-xl font-semibold text-fg">Ask about your pharmacy's data</p>
+            <p className="text-lg font-semibold tracking-[-0.01em] text-fg">Ask about your pharmacy's data</p>
             <p className="mt-1 text-dense text-fg-3">
               Answers are calculated from PharmaCore's records. Each answer lists the data it used. This assistant does not give medical advice.
             </p>
@@ -105,7 +105,7 @@ export function ChatPanel({ configured }: { configured: boolean }) {
 
         {turns.map((turn, i) =>
           turn.role === "user" ? (
-            <div key={i} className="max-w-3xl border-t-2 border-fg pt-2">
+            <div key={i} className="max-w-3xl border-t border-line-strong pt-2">
               <p className="kicker">Question</p>
               <p className="mt-0.5 whitespace-pre-wrap font-medium text-fg">{turn.content}</p>
             </div>

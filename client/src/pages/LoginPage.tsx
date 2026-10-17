@@ -29,14 +29,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
-      <div className="w-full max-w-sm">
-        <p className="flex items-center gap-1.5 text-2xs font-semibold tracking-[0.12em] text-fg-3 uppercase">
-          <span className="h-2 w-2 bg-lime-400" aria-hidden />
-          PharmaCore
-        </p>
-        <h1 className="mt-2 border-b-2 border-fg pb-3 font-serif text-[2rem] leading-tight font-semibold text-fg">Sign in</h1>
-        <p className="mt-3 text-dense text-fg-2">Till, stock and records for the pharmacy. Your role decides what you can open.</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-frame px-4 py-10">
+      <p className="mb-5 flex items-center gap-2 text-dense font-semibold tracking-[0.08em] text-frame-fg uppercase">
+        <span className="flex h-6 w-6 items-center justify-center rounded-sm bg-frame-3" aria-hidden>
+          <span className="h-2 w-2 rounded-xs bg-signal" />
+        </span>
+        PharmaCore
+      </p>
+      <div className="w-full max-w-sm animate-enter rounded-xl border border-frame-line bg-surface px-6 pt-6 pb-7 text-fg shadow-overlay">
+        <h1 className="text-title leading-tight font-semibold tracking-[-0.02em] text-fg">Sign in</h1>
+        <p className="mt-1.5 text-dense text-fg-3">Till, stock and records for the pharmacy. Your role decides what you can open.</p>
 
         {sessionExpired ? (
           <Alert tone="warning" className="mt-6">
@@ -66,12 +68,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {import.meta.env.DEV ? (
-          <p className="mt-6 text-xs text-fg-3">
-            Development default: <code>admin</code> / <code>admin123</code>. Change it from the Account page.
-          </p>
-        ) : null}
       </div>
+      {import.meta.env.DEV ? (
+        <p className="mt-5 text-xs text-frame-fg-2">
+          Development default: <code>admin</code> / <code>admin123</code>. Change it from the Account page.
+        </p>
+      ) : null}
     </div>
   );
 }

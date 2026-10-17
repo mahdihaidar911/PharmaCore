@@ -1,144 +1,159 @@
 # PharmaCore — design direction
 
-This document records the design audit, the three directions that were explored, the one that was chosen, and the
-design system that implements it. It is the reference for anyone adding a screen.
+This document records why the interface looks the way it does and is the reference for anyone adding a screen.
+The current direction is **Graphite Console**. It replaced the first redesign ("Editorial Precision", commit
+`53039f6`), which is summarised at the end for history.
 
-## 1. Audit (before the redesign)
+## 1. Why a second redesign
 
-**Stack.** React 19 + Vite 6 + Tailwind CSS v4 (`@theme` tokens, `@layer components` classes), react-router 7.
-No component or icon library. 17 routed pages inside one `Layout` shell. Shared primitives: `ui.tsx`
-(Alert, Badge, StatCard, Modal, ConfirmDialog…), `PageShell.tsx` (PageShell, Panel, ScrollBox), `icons.tsx`
-(hand-drawn path set). Real data is a MoPH catalogue of ~11,000 products whose names are long, upper-case registry
-strings such as `HYRIMOZ 40mg/0.4ml 2Prefilled pen — Solution for injection`.
+The ledger direction fixed the generic-admin look but read as dated: ivory everywhere, a serif for titles and
+totals, ruled "account book" headings, and one flat plane where the sidebar, header and content were separated only
+by hairlines. Nothing told the eye where the work area was, there was no dark theme, and common tasks had extra
+steps (editing a product meant scrolling to a side form; receiving stock meant searching and then picking from a
+`<select>`).
 
-**Why it read as a generic admin template**
+Three concepts were proposed:
 
-| Symptom | Where |
+- **A. Graphite Console — "the dispensing instrument".** Graphite frame, warm working canvas, one emerald accent,
+  readout typography, keyboard first. Risk: drifting into a developer tool, so surfaces stay warm and data
+  presentation stays pharmacy-specific (expiry, dosage form, dual currency).
+- **B. Layered Workspace — "the premium desktop app".** Floating sheets on a stone canvas, a dock, soft elevation.
+  Risk: generic glassy SaaS.
+- **C. Counter Station — "touch-first retail".** Tabs, big numerals, tiles. Risk: useless for an 11,000-item
+  regulated catalogue sold by scan and search.
+
+**Decision: A**, borrowing one idea from B (a product inspector panel) where it removes a real step.
+
+## 2. Principles
+
+- **The frame is graphite in both themes; the work is on the canvas.** Rail and command bar are always graphite.
+  The workspace is an inset canvas with a rounded top-left corner, so the working area is obvious.
+- **Both themes are designed, not inverted.** Light uses warm ivory surfaces on a stone canvas; dark uses charcoal
+  with a brighter emerald. Neither is "the POS theme": the whole app follows the user's preference.
+- **One accent.** Emerald is the only brand colour: primary actions, selection, links, the current page. A brighter
+  "signal" emerald is used only for live-status dots.
+- **Red means something is wrong.** Danger is reserved for expired stock, errors and destructive actions; amber
+  (caution) for expiring soon, low stock, drawer or backup attention.
+- **Status is never colour-only.** `Status` always renders an icon and a word ("Expired 12 d ago", "21 days left").
+- **No invented numbers.** Every figure, meter and chart comes from an existing API response. If the data does not
+  exist (for example there is no reorder level per product in the catalogue list), nothing is drawn.
+
+## 3. Theme system
+
+| Piece | Where |
 | --- | --- |
-| Tailwind's default teal on slate, dark `slate-900` sidebar with filled pill for the active item | `index.css`, `Layout` |
-| Every region is the same white `rounded-xl` bordered card floating on grey; cards nested in cards | all pages, Reports "Profit" |
-| Dashboard and Reports open with rows of KPI cards with coloured left borders | `StatCard` |
-| Status shown as rounded pills in four colours (`Expired`, `28 days`, `0 / min 5`) | Dashboard, Products, Backup |
-| One typeface for everything; codes, prices, dates and quantities share the body style; dates wrap mid-value (`2026-05-` / `30`) | Inventory, POS |
-| Upper-case grey table headers, generous `py-3` rows: ~9 rows per screen on a 900px display | `.data-table` |
-| Every page header is "Title + a grey developer sentence" (`FEFO-ready for POS`) | `PageShell` |
-| A 7-day bar chart where only one bar has data — decoration, not insight | Reports |
-| POS: glowing teal scan box, results list pushes the cart down, payment is a generic form with a `<select>`, tiny grey "Exact" pills, no keyboard model beyond Enter | `POSPage` |
-| ~450 hard-coded default-palette classes (`text-slate-500`, `bg-amber-50`…) across 30 files, so pages drift | MoPH, POS, LinkBarcodePanel worst |
+| Role tokens `--c-*` for light (`:root, [data-theme="light"]`) and dark (`[data-theme="dark"]`) | `client/src/index.css` |
+| `@theme inline` maps every Tailwind colour to `var(--c-…)`, so utilities resolve per element and scopes work | `index.css` |
+| `.scope-graphite` re-maps the roles to graphite values for a region (rail, command bar, POS checkout, focus POS, toasts). It sets no background; the region adds `bg-frame` or `bg-canvas` | `index.css` |
+| Preference `light` / `dark` / `system`; stored in `localStorage.pharmacore_theme` (absent = system) | `context/ThemeContext.tsx` |
+| No flash: an inline script in `index.html` sets `data-theme` before the bundle loads (verified by a screenshot 40 ms after navigation) | `client/index.html` |
+| Switch: sun / monitor / moon radiogroup in the command bar | `components/Layout.tsx` |
 
-**Constraints that shape the redesign.** Offline single workstation (fonts must be bundled, no CDN); keyboard
-scanners type into the focused field and press Enter; three roles see different subsets of every page; the backend
-already provides everything shown — the redesign must not invent data.
+Tailwind's default palette is switched off (`--color-*: initial`); `black` and `white` do not exist, so a stray
+`text-slate-500` or `bg-black/10` renders nothing (or fails the build) and is caught.
 
-## 2. Three directions
+### Tokens
 
-### A. Editorial Precision — "the dispensary ledger"
-- **Philosophy.** A pharmacy runs on records: the register, the formulary, the stock book. Treat every screen as a
-  well-set page of a reference work — authority through typography and ruling, not through boxes and colour.
-- **Palette.** Warm ivory paper, near-black ink, deep forest green for structure and primary action, lime used
-  only as a highlighter mark (current item, selected line, the amount to hand back). Oxblood red reserved for
-  danger; ochre for caution.
-- **Typography.** One superfamily in three voices: IBM Plex Serif for titles and totals, Plex Sans for the
-  interface, Plex Mono for codes, barcodes and dates. Tabular figures everywhere numbers align.
-- **Layout.** A light index column instead of a dark slab; sections divided by heavy ink rules with small-caps
-  labels instead of card borders; content sits on paper sheets with hairlines.
-- **Navigation.** Index column grouped like a table of contents; `Ctrl K` "Go to" palette; F-key shortcuts printed
-  as keycaps next to the actions they trigger.
-- **Tables.** Dense ruled ledgers, right-aligned tabular figures, mono codes, status written in words with a glyph.
-- **Data viz.** Typographic: numbers first, inline proportional bars inside tables, no chart cards.
-- **Controls.** Rectangular, small 3px radius, ink outlines; segmented controls for mutually exclusive choices.
-- **Differentiation.** Looks like a reference book/register, not like SaaS. Risk: can become precious or slow if
-  the serif creeps into the working UI — so the serif is limited to titles and totals.
+| Role | Light | Dark |
+| --- | --- | --- |
+| canvas / surface / surface-2 / surface-3 | `#eeece5` / `#fbfaf7` / `#f3f1eb` / `#e8e5dc` | `#121514` / `#191d1b` / `#202523` / `#2a302d` |
+| fg / fg-2 / fg-3 / fg-4 | `#1a1d1c` / `#444945` / `#62675f` / `#9a9d95` | `#ecebe4` / `#c3c6bd` / `#979c93` / `#6a6f68` |
+| line / line-strong / line-input | `#e0ddd3` / `#c8c3b5` / `#858175` | `#2a302d` / `#3b423e` / `#6e7671` |
+| accent / accent-text / accent-soft | `#0e6b4e` / `#0b6649` / `#e1f0e8` | `#2fb380` / `#5fd3a2` / `#14322a` |
+| danger / caution | `#b0261b` / `#8c5800` | `#ff8a7a` / `#eab558` |
+| frame / frame-fg / frame-fg-2 | `#1b1e1d` / `#ebe8df` / `#a4a89f` | `#0c0e0d` / … |
 
-### B. Modern Clinical Instrument — "the dispensing analyser"
-- **Philosophy.** Behave like laboratory equipment: calm, exact, state-driven readouts.
-- **Palette.** Cool off-white and graphite panels, signal green/amber/red, a dark readout display for totals.
-- **Typography.** Technical grotesk with monospaced readouts for every number.
-- **Layout.** Fixed panes, a permanent status strip (drawer, backup, rate, API) along the bottom.
-- **Navigation.** Icon rail plus command palette; function keys labelled like hardware buttons.
-- **Tables.** Grid with column separators, monospaced numerals.
-- **Data viz.** Threshold and bullet bars against limits.
-- **Controls.** Square, 2px radius, segmented toggles, LED-style status dots.
-- **Differentiation.** Feels like equipment. Risk: cold for cashiers, dark readouts drift toward "developer dark
-  mode", icon rails hide 15 destinations behind memorisation.
+Measured contrast (WCAG formula, `.shots/contrast2.mjs`):
 
-### C. Contemporary Retail Operations — "the counter"
-- **Philosophy.** Modern retail POS: speed at the till, touch first, merchandising mindset.
-- **Palette.** White with bold brand colour blocks, category colours.
-- **Typography.** Rounded humanist sans, large numerals.
-- **Layout.** POS as a tile grid of favourite products, bottom action bar.
-- **Navigation.** Top tabs, large touch targets.
-- **Tables.** Converted to card lists.
-- **Data viz.** Big-number tiles and charts.
-- **Controls.** Large rounded buttons.
-- **Differentiation.** Friendly. Risk: a tile grid is useless for an 11,000-item regulated catalogue sold by scan
-  and search; category colours become decoration; card lists destroy inventory density — it slides straight back
-  into the generic look this redesign is escaping.
+| Pair | Light | Dark |
+| --- | --- | --- |
+| fg on surface | 16.3 | 14.3 |
+| fg-2 on surface | 8.8 | 9.8 |
+| fg-3 (meta, placeholders) on surface / canvas | 5.6 / 4.9 | 6.1 / 6.6 |
+| accent-fg on accent (primary button) | 6.2 | 7.0 |
+| accent-text on surface / accent-soft | 6.7 / 5.9 | 9.2 / 7.5 |
+| danger on surface | 6.4 | 7.4 |
+| caution on surface | 5.7 | 9.1 |
+| line-input (field border) on surface / surface-2 | 3.3 / 3.5 | 3.6 / 3.3 |
+| frame-fg / frame-fg-2 on frame | 13.7 / 6.9 | — |
 
-### Decision: A — Editorial Precision ("the dispensary ledger")
+`fg-4` (2.6 light, 3.3 dark) is only for disabled text and empty-value dashes, never for labels or placeholders.
 
-It is the only direction that fits both halves of the product: the counter (fast, legible money handling) and the
-records (dense, regulated data). The palette hypothesis was tested against it and kept with conditions:
+### Type, shape, motion
 
-Measured contrast (WCAG formula, `.shots/contrast.mjs`):
-
-- **Ivory + near-black**: body text 15.4:1; secondary `ink-2` 8.7:1; tertiary `ink-3` 5.1:1 on paper (4.6:1 on
-  `paper-2`). Kept. `ink-4` (2.9:1) is only for disabled text, never placeholders or labels.
-- **Forest green** as primary action fill with ivory text 9.4:1. Kept.
-- **Lime** fails as text or thin lines on ivory (1.2:1) and fails as a focus indicator. It is therefore used only
-  as a *fill under ink* (13.1:1) or as *text on forest-900* (11.9:1). Focus uses a 2px ink outline (16.8:1).
-- **Hairline rules** (1.4:1) only separate content; anything interactive (input borders) uses `line-input`, which
-  clears the 3:1 non-text minimum.
-- **Red** is reserved for danger, errors, expired stock and destructive actions — never for decoration or brand.
-
-## 3. Design system
-
-All tokens live in `client/src/index.css` (`@theme`). Tailwind's default colour palette is **disabled**
-(`--color-*: initial`), so a stray `text-slate-500` produces no colour and is caught in review.
-
-| Group | Tokens |
+| Group | Value |
 | --- | --- |
-| Paper | `paper-0` sheet `#FCFBF6`, `paper` canvas `#F4F1E7`, `paper-2` index/sunken `#EAE5D6`, `paper-3` pressed `#DDD7C4` |
-| Ink | `ink` `#181B16`, `ink-2` `#41453C`, `ink-3` (meta, placeholders) `#646859`, `ink-4` (disabled only, 2.9:1) `#8E907F` |
-| Rules | `rule` hairline `#DAD4C2`, `rule-strong` `#B5AE97`, `line-input` field border `#8A8470` (3.6:1 against paper) |
-| Forest | `forest-50…900`, primary action `forest-700 #1E4C38`, total band `forest-900 #0F271D` |
-| Lime | `lime-200 #E6F3AE`, `lime-300 #D2EA72` (marker), `lime-400 #BEDB4E` |
-| Semantic | `danger #A3261B` / `danger-bg #F7E4DF` / `danger-rule #E2B4AA`; `caution #8A5300` / `caution-bg #F6EBCB` / `caution-rule #E0C98A`; success uses forest; info uses ink on `paper-2` |
-| Type | `font-serif` Plex Serif (titles, totals, the Today summary), `font-sans` Plex Sans (UI), `font-mono` Plex Mono (codes, barcodes, dates, exchange rate). Sizes: `text-2xs` 11 labels · `text-xs` 12 meta · `text-dense` 13 tables · `text-sm` 14 body · `text-title` 24 page titles · `text-total` 44 the sale total |
-| Numbers | tabular lining figures on `body`, so every column of money, quantities and dates aligns; `.num` right-aligns a table cell |
-| Radii | `xs` 2px keycaps, `sm` 3px controls, `md`/`lg` 4px sheets and dialogs, `xl` 6px maximum |
-| Shadow | none on surfaces; `shadow-overlay` only for dialogs, the command palette and the POS result list |
-| Focus | 2px `ink` outline on `:focus-visible`; the scan field adds a lime halo |
-| Motion | 120ms colour changes only; spinners stop under `prefers-reduced-motion` |
-| Density | table rows ~36px; inputs 36px (44px on touch screens), `input-lg` 52px for the scan field; buttons 36px, `btn-sm` 30px, `btn-lg` 48px |
-| Icons | one 24-grid 1.6px-stroke set in `icons.tsx`, used for navigation, actions and statuses — never decoration |
+| Type | Instrument Sans 400–700 for the interface (tabular figures verified), IBM Plex Mono for codes, barcodes, dates and the exchange rate. Both bundled as woff2 with their OFL licences in `client/src/assets/fonts/` |
+| Sizes | `2xs` 11 · `xs` 12 · `dense` 13 (tables) · `sm` 14 (body) · `lead` 15 · `title` 22 (page titles) · `figure` 30 (key figures) · `readout` 52 (the sale total) |
+| Radii | 3 (keycaps) · 5 (controls) · 8 (cards) · 10 (dialogs) · 12 (the canvas corner, login card) |
+| Elevation | `shadow-raised` (subtle) for cards and secondary buttons; `shadow-overlay` for dialogs, panels, the command palette and dropdowns |
+| Focus | 2px accent outline on `:focus-visible`; fields add a 3px `accent-soft` ring |
+| Motion | 140ms colour/border transitions; `enter` and `slide-in` for overlays; `flash` on the last-added cart line; everything stops under `prefers-reduced-motion` |
 
-**Component vocabulary.** CSS classes in `index.css`: `btn` (`-primary`, `-secondary`, `-ghost`, `-danger`,
-`-sm`, `-lg`, `-icon`), `input` (`-lg`, `-invalid`), `field-label`, `segmented` + `tab`, `kbd`, `sheet`,
-`section-head`, `kicker`, `meta`, `code`, `badge` (square tags for categories such as role or backup kind),
-`status`, `alert`, `data-table`. React components in `components/ui.tsx` and `PageShell.tsx`: `Status`,
-`Alert`, `StatCard` + `FigureRow` (ruled figures, not cards), `Field`, `SearchInput`, `Modal` (focus trap,
-topmost-only Escape), `ConfirmDialog` (destructive dialogs focus Cancel), `EmptyState`, `Spinner`, `PageShell`,
-`SectionHead`, `ScrollBox`, `Pagination`; plus `ProductName` (title + dosage form) and `CommandPalette` (Ctrl K).
+## 4. Components
 
-**Status is never colour-only.** `Status` always renders a word and an icon: a warning triangle with
-"Expired 12 d ago" or "Out of stock", a clock with "28 days left", a check with "Active" or "Balanced".
-Red is reserved for expired stock, out of stock, errors and destructive actions; ochre for expiring soon, low
-stock and drawer or backup attention; lime only as a marker under ink (active page, last-added cart line,
-change to return), never as text on paper.
+CSS classes in `index.css`: `btn` (`-primary`, `-secondary`, `-ghost`, `-danger`, `-sm`, `-lg`, `-icon`), `input`
+(`-lg`, `-invalid`), `field-label`, `field-hint`, `segmented` + `tab`, `kbd`, `sheet` / `card`, `section-head`,
+`kicker`, `meta`, `code`, `badge`, `status`, `signal`, `alert`, `data-table` (with `is-selected` / `aria-selected`
+rows: accent-soft fill and a 3px emerald edge), `meter` (`-ok`, `-caution`, `-danger`).
 
-## 4. Rollout status
+React components:
 
-Every page uses the system: POS, Cash drawer, Sales history, Returns, Products, Receive stock, Inventory,
-Today, Reports, Assistant (Ask, Analyze, Smart search), Users, MoPH catalogue, Backup, Pharmacy profile,
-Settings, My account and Sign in. Business logic, API contracts and data are unchanged; the one server change
-is an additive inventory filter and sort (`expiry`, `sort` query parameters, covered by
-`inventoryFilters.test.ts`).
+- `ui.tsx`: `Status`, `Alert`, `Badge`, `StatCard` + `FigureRow` (an instrument strip, `columns={3|4}`), `Field`,
+  `SearchInput`, `Modal` (focus trap, topmost-only Escape, focus return; `side` docks it to the right edge as a
+  full-height panel), `ConfirmDialog`, `EmptyState`, `Spinner`.
+- `PageShell.tsx`: `PageShell`, `SectionHead`, `ScrollBox`. `Pagination`.
+- `ProductName` (title + dosage form), `ExpiryCell` (date, status and a 12-month shelf-life meter),
+  `RevenueChart` (SVG columns from `/api/reports/daily-revenue`, hover readout, hidden table for screen readers),
+  `ProductInspector`, `CommandPalette` (Ctrl K: pages and products), `Toaster` + `lib/toast.ts`.
 
-Known gaps:
+## 5. Screens
 
-- No report of sales by tendered currency (USD vs LBP cash) over a date range; only by payment method.
-- Low-stock and valuation figures still count expired units until they are written off (the POS never sells them).
-- Receipts and the shift report are separate print templates (`receiptTemplate`, `shiftReport`) and were not
-  restyled; they are designed for 80 mm thermal paper.
-- Verified at 1440, 1280 and 1024 px wide and on a touch-size input rule; there is no phone layout for the POS.
+- **Shell.** Collapsible graphite rail (expanded from 1280 px, remembered in `pharmacore_rail`; a drawer below
+  1024 px), command bar with breadcrumb, Ctrl K search, backup and drawer status, exchange rate and theme switch.
+- **POS.** Scan field, cart with keyboard map when empty, graphite checkout column with the total as a readout,
+  composite tender fields with "Exact" (F7/F8), change to return. Optional **Focus** mode turns the whole POS
+  workspace graphite (remembered in `pharmacore_pos_focus`).
+- **Products.** Full-width catalogue; a row opens the **product inspector** (`/products?product=ID`, also reached
+  from Ctrl K and from Inventory): price in USD/LBP, on-hand units, identity (MoPH code, barcode, brand, category),
+  batches with expiry meters, cost (managers only) and Adjust. Edit and Add product happen in the same panel.
+- **Inventory.** Batches with expiry meters; product names open the inspector.
+- **Receive stock.** One search field: type, arrow keys, Enter; the chosen product is confirmed with its current
+  stock and focus moves to Quantity. "Received recently" shows the latest batches.
+- **Today.** Takings today, three shelf checks (reorder, expired, expiring), and a 7-day revenue chart for roles
+  that may see sales.
+- **Reports.** Figure strip, daily revenue chart, payment methods, cashiers, fastest sellers with days of cover,
+  profit (owner), reorder and expiry lists, stock movements. Every table keeps its CSV export.
+- Every other page (Sales history, Returns, Cash drawer, Users, MoPH, Backup, Settings, Pharmacy profile, Account,
+  Assistant, Sign in) uses the same cards, tables and controls.
+
+### POS default: light, with Focus as an option
+
+Both variants were built and compared on real data at 1024–1440 px. The light POS (ivory cart, graphite checkout)
+is the default: the checkout column already gives the total and change maximum contrast, product names and stock
+notes read better on ivory under bright shop lighting, and forcing one page dark while the rest is light would
+contradict the theme rule. In the dark theme the whole app, POS included, is dark. Focus mode exists for staff who
+prefer a dark till during the day.
+
+## 6. Functional changes made during the redesign
+
+Business rules, APIs and the database are unchanged. Client-only changes:
+
+- **Double checkout guard.** Ctrl+Enter calls `requestSubmit()`, which ignores the disabled button; two quick
+  presses could record the same cart twice. `handleCheckout` now holds a synchronous in-flight flag.
+- `api.getProduct(id)` wraps the existing `GET /api/products/:id` for the inspector.
+- Success messages that used to sit in page alerts are toasts (receive, adjust, product save, sale completed).
+
+## 7. Known gaps
+
+- Receipts and the shift report are separate 80 mm print templates and were not restyled.
+- No phone layout for the POS; verified at 1440, 1280 and 1024 px wide.
+- No sales-by-tendered-currency report; low-stock figures still count expired units until they are written off.
+- Product list stock is a number, not a meter: the catalogue has no per-product target to measure against.
+
+## History: Editorial Precision (first redesign)
+
+Ivory paper, near-black ink, forest green and a lime marker; IBM Plex Serif for titles and totals; ruled ledger
+sections. It replaced a generic teal-on-slate admin template (default Tailwind palette, cards in cards, KPI tiles,
+pill statuses). Its lasting contributions — the disabled default palette, tabular figures, status as icon plus
+word, red reserved for danger, keyboard-first POS — carry over into Graphite Console.

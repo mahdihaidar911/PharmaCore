@@ -109,12 +109,12 @@ export default function BackupPage() {
       }
     >
       <ScrollBox className="min-h-0 flex-1">
-        <div className="flex max-w-4xl flex-col gap-8 pb-4">
+        <div className="flex max-w-4xl flex-col gap-5 pb-4">
           {message ? <Alert tone="success">{message}</Alert> : null}
           {error ? <Alert tone="error">{error}</Alert> : null}
 
           {status ? (
-            <section className="space-y-3">
+            <section className="sheet space-y-3 px-4 pt-3 pb-4">
               <SectionHead
                 title="Protection"
                 action={
@@ -136,7 +136,7 @@ export default function BackupPage() {
           ) : null}
 
           {canConfigure ? (
-            <form onSubmit={saveSettings} className="space-y-4">
+            <form onSubmit={saveSettings} className="sheet space-y-4 px-4 pt-3 pb-4">
               <SectionHead title="Automatic backups" />
               <label className="flex items-center gap-2 text-sm text-fg-2">
                 <input type="checkbox" className="h-4 w-4" checked={form.auto_enabled} onChange={(e) => setForm({ ...form, auto_enabled: e.target.checked })} />
@@ -158,7 +158,7 @@ export default function BackupPage() {
             </form>
           ) : null}
 
-          <section>
+          <section className="sheet px-4 pt-3 pb-2">
             <SectionHead title="Backups on this computer" count={backups.length} />
             {backups.length === 0 ? (
               <EmptyState title="No backups yet" description="Create one now, then copy it somewhere safe." />

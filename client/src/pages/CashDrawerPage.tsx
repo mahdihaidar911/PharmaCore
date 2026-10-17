@@ -248,12 +248,12 @@ export default function CashDrawerPage() {
       description="Open the drawer with the starting float, record cash taken out or added, and count the drawer at the end of the shift."
     >
       <ScrollBox className="min-h-0 flex-1">
-        <div className="flex max-w-5xl flex-col gap-8 pb-4">
+        <div className="flex max-w-5xl flex-col gap-5 pb-4">
           {error ? <Alert tone="error">{error}</Alert> : null}
           {current === null ? <Spinner /> : null}
 
           {current && !shift ? (
-            <form onSubmit={handleOpen} className="max-w-2xl space-y-4">
+            <form onSubmit={handleOpen} className="sheet max-w-2xl space-y-4 px-4 pt-3 pb-4">
               <SectionHead title="Open the drawer" action={<Status tone="caution" icon="alert">Drawer closed</Status>} />
               <p className="text-dense text-fg-2">Count the starting float in the drawer and open a shift. Sales and refunds are blocked until a shift is open.</p>
               <AmountInputs usd={openUsd} lbp={openLbp} onUsd={setOpenUsd} onLbp={setOpenLbp} usdLabel="Opening float (USD)" lbpLabel="Opening float (LBP)" />
@@ -265,10 +265,10 @@ export default function CashDrawerPage() {
 
           {shift ? (
             <>
-              <div className="flex flex-col gap-3 border-t-2 border-fg pt-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-line-strong pt-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-baseline gap-3">
-                    <h2 className="font-serif text-xl font-semibold text-fg">
+                    <h2 className="text-lg font-semibold tracking-[-0.01em] text-fg">
                       Shift <span className="font-mono text-lg">#{shift.id}</span>
                     </h2>
                     <Status tone="ok">Open</Status>
@@ -314,12 +314,12 @@ export default function CashDrawerPage() {
 
               <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
                 {totals ? (
-                  <section>
+                  <section className="sheet px-4 pt-3 pb-2">
                     <SectionHead title="Where the cash came from" />
                     <Breakdown shift={shift} totals={totals} />
                   </section>
                 ) : null}
-                <section>
+                <section className="sheet px-4 pt-3 pb-2">
                   <SectionHead title="Pay-ins and pay-outs" count={movements.length} />
                   <MovementsList movements={movements} />
                 </section>
@@ -328,7 +328,7 @@ export default function CashDrawerPage() {
           ) : null}
 
           {canReconcile ? (
-            <section>
+            <section className="sheet px-4 pt-3 pb-2">
               <SectionHead title="Recent shifts" count={history.length} />
               {history.length === 0 ? (
                 <EmptyState title="No shifts yet" />

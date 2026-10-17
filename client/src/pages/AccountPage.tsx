@@ -38,8 +38,8 @@ export default function AccountPage() {
   return (
     <PageShell title="My account" description="Your sign-in details and password.">
       <ScrollBox className="min-h-0 flex-1">
-        <div className="grid max-w-4xl gap-x-10 gap-y-8 pb-2 lg:grid-cols-2">
-          <section>
+        <div className="grid max-w-4xl items-start gap-5 pb-2 lg:grid-cols-2">
+          <section className="sheet px-4 pt-3 pb-4">
             <SectionHead title="Signed in as" />
             <dl className="mt-1 text-sm">
               <div className="flex justify-between gap-4 border-b border-line py-2.5">
@@ -60,7 +60,7 @@ export default function AccountPage() {
             <p className="meta mt-3">Only the owner can change names and roles, from the Users page.</p>
           </section>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="sheet space-y-4 px-4 pt-3 pb-4">
             <SectionHead title="Change password" />
             <Field label="Current password">
               <input type="password" className="input" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />

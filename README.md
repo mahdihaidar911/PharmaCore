@@ -207,37 +207,50 @@ What is covered and the manual checklist: [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Screenshots
 
-Demo data on a copy of the MoPH catalogue. The visual system (type, colour, components) is described in
-[`docs/DESIGN.md`](docs/DESIGN.md).
+Demo data on a copy of the MoPH catalogue. The interface has Light, Dark and System themes (switch in the top bar);
+the visual system is described in [`docs/DESIGN.md`](docs/DESIGN.md).
 
-Point of sale, cashier signed in: numbered cart, last-added line marked, total band and tender
+Point of sale, cashier signed in: last-added line marked, graphite checkout column with the total and change
 
 ![POS](docs/screenshots/pos.png)
 
-POS on a 1024 px tablet while searching; expired and empty batches are shown as not sellable
+The same sale in the dark theme, and in the optional Focus mode (dark POS workspace inside the light theme)
+
+![POS, dark theme](docs/screenshots/pos-dark.png)
+![POS, focus mode](docs/screenshots/pos-focus.png)
+
+POS on a 1024 px tablet while searching; out-of-stock products are shown as not sellable
 
 ![POS tablet](docs/screenshots/pos-tablet.png)
 
-Today: a written summary of the day, then what must come off the shelf and what to reorder
+Today: takings, the three shelf checks and the last 7 days of revenue
 
 ![Today](docs/screenshots/today.png)
 
-Inventory by batch, filtered and sorted by expiry
+Product inspector: price, stock, identity and batches with expiry, opened from the catalogue, Inventory or Ctrl K
+
+![Product inspector](docs/screenshots/product-inspector.png)
+![Product inspector, dark](docs/screenshots/product-inspector-dark.png)
+
+Inventory by batch with shelf-life meters; Receive stock with one-step product search
 
 ![Inventory](docs/screenshots/inventory.png)
+![Receive stock](docs/screenshots/receive.png)
 
-Reports, answering one question per section
+Reports for the last 30 days, light and dark
 
 ![Reports](docs/screenshots/reports.png)
+![Reports, dark](docs/screenshots/reports-dark.png)
 
 Cash drawer, owner view, and the cashier's blind-count view of the same shift
 
 ![Cash drawer](docs/screenshots/cash-drawer.png)
 ![Cash drawer, cashier](docs/screenshots/cash-drawer-cashier.png)
 
-Backups
+Backups (dark theme) and sign in
 
 ![Backup](docs/screenshots/backup.png)
+![Sign in](docs/screenshots/login.png)
 
 ## Known limitations
 

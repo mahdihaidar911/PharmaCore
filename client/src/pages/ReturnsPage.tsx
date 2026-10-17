@@ -130,7 +130,7 @@ export default function ReturnsPage() {
             <form onSubmit={handleSubmit} className="sheet">
               <div className="border-b border-line px-5 py-3">
                 <p className="meta">{parseServerDate(sale.sale.created_at).toLocaleString()}</p>
-                <h2 className="font-serif text-xl font-semibold">
+                <h2 className="text-lg font-semibold tracking-[-0.01em]">
                   Invoice <span className="font-mono">#{sale.sale.id}</span>
                   <span className="ml-3 font-sans text-sm font-normal text-fg-2">{formatUsd(sale.sale.total_usd)} paid</span>
                 </h2>
@@ -184,7 +184,7 @@ export default function ReturnsPage() {
               <div className="grid gap-5 px-5 py-4 md:grid-cols-[1fr_1.2fr]">
                 <div>
                   <p className="kicker">Refund due</p>
-                  <p className="mt-1 font-serif text-3xl font-semibold">{formatUsd(expectedRefund)}</p>
+                  <p className="mt-1 text-figure leading-none font-semibold tracking-[-0.025em]">{formatUsd(expectedRefund)}</p>
                   <p className="font-mono text-dense text-fg-2">{formatLbp(usdToLbp(expectedRefund, rate))}</p>
                   <p className="meta mt-1">Includes the invoice discount share. Rate of the original sale.</p>
                 </div>

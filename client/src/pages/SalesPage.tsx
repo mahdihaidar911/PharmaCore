@@ -134,7 +134,7 @@ export default function SalesPage() {
                 <p className="meta">
                   {parseServerDate(selected.sale.created_at).toLocaleString()} · {selected.sale.cashier_name ?? "—"}
                 </p>
-                <h2 className="font-serif text-title font-semibold">
+                <h2 className="text-title font-semibold tracking-[-0.02em]">
                   Invoice <span className="font-mono text-xl">#{selected.sale.id}</span>
                 </h2>
                 <table className="data-table mt-3">
@@ -166,7 +166,7 @@ export default function SalesPage() {
                 </table>
                 <div className="mt-3 ml-auto max-w-xs text-dense">
                   {selected.sale.discount_usd > 0 ? <Line label="Discount">−{formatUsd(selected.sale.discount_usd)}</Line> : null}
-                  <div className="border-t-2 border-fg pt-1">
+                  <div className="border-t border-line-strong pt-1">
                     <Line label="Total" strong>
                       {formatUsd(selected.sale.total_usd)}
                     </Line>

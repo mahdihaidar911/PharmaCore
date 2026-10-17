@@ -61,8 +61,8 @@ export default function ProfilePage() {
   return (
     <PageShell title="Pharmacy profile" description="Official details printed on every receipt — English on the left, Arabic on the right.">
       <ScrollBox className="min-h-0 flex-1">
-        <form onSubmit={handleSubmit} className="max-w-2xl space-y-6 pb-4">
-          <section>
+        <form onSubmit={handleSubmit} className="max-w-2xl space-y-5 pb-4">
+          <section className="sheet px-4 pt-3 pb-4">
             <SectionHead title="Pharmacy name" />
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <TextField label="English (receipt header, left)" value={form.name} onChange={set("name")} required />
@@ -70,7 +70,7 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section>
+          <section className="sheet px-4 pt-3 pb-4">
             <SectionHead title="Receipt details" />
             <p className="meta mt-1 mb-2">Each field prints as one line on the receipt.</p>
             <div className="grid gap-3 sm:grid-cols-2">

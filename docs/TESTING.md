@@ -51,18 +51,30 @@ Run `npm run dev` → http://localhost:5173. Create a cashier and a pharmacist u
 - [ ] Backup: Restore button only visible to the owner; restore asks for confirmation
 - [ ] Backup: status shows last backup age; setting a second location to a missing folder is refused;
       a valid USB folder receives a copy of the next backup
-- [ ] Products: owner/pharmacist can untick Active; the product disappears from POS and reappears with "Show inactive"
+- [ ] Products: owner/pharmacist can untick Active; the product disappears from POS and reappears with "Include inactive"
 - [ ] Receive stock: past expiry dates are refused; expiry within 90 days shows a short-dated warning
 - [ ] Tablet width (< 1024 px): sidebar becomes a drawer opened from the top bar
+
+### Theme
+
+- [ ] Top bar switch: Light, System, Dark; the choice survives a reload; System follows the OS setting live
+- [ ] Reload in Dark: no white flash before the app appears
+- [ ] Every page is readable in both themes (tables, alerts, dialogs, the product inspector, toasts, charts)
+- [ ] POS Focus button turns the POS workspace graphite in the light theme and is remembered
 
 ### Products
 
 - [ ] Pagination, search by name / MoPH code / barcode
 - [ ] Owner/pharmacist can create and edit; cashier sees the list only
+- [ ] Clicking a row opens the inspector (URL gets `?product=ID`); Back closes it; Escape closes it and returns focus
+- [ ] Inspector shows price in USD and LBP, on-hand units, batches with expiry; cost only for owner/pharmacist
+- [ ] Edit product → Save shows a toast and the panel returns to the details; Add product opens the new product
+- [ ] Ctrl K → type a product name → Enter opens that product's inspector
 
 ### Inventory
 
-- [ ] Expiry colours (red ≤ 30 days, amber ≤ 90 days)
+- [ ] Expiry states: red with a warning icon only once expired, amber with a clock within 90 days, quiet otherwise; the shelf-life meter matches
+- [ ] Clicking a product name opens the product inspector
 - [ ] Adjust: write off 1 unit as "damaged" → quantity drops; it appears in Reports → Stock movements
 
 ### Cash drawer

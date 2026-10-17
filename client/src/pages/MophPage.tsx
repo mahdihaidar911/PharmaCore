@@ -330,7 +330,7 @@ export default function MophPage() {
             </Alert>
           ) : null}
 
-          <section className="space-y-3">
+          <section className="sheet space-y-3 px-4 pt-3 pb-4">
             <SectionHead title="1 · Price list update" count="repeat when MoPH publishes" />
             <p className="text-dense text-fg-2">
               Uses <strong>WebMarketed</strong> only. Updates prices of products already in your catalogue, matched by MoPH code. Never adds products.
@@ -371,7 +371,7 @@ export default function MophPage() {
             </div>
           </section>
 
-          <section className="space-y-3">
+          <section className="sheet space-y-3 px-4 pt-3 pb-4">
             <SectionHead title="2 · National catalogue" count="one-time import" />
             <p className="text-dense text-fg-2">
               Merges <strong>WebMarketed</strong> (codes and public prices), <strong>WebNonMarketed</strong> (codes, no price) and the{" "}
