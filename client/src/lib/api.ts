@@ -624,6 +624,9 @@ export const api = {
     const query = params.toString();
     return request<Paginated<Product>>(`/api/products${query ? `?${query}` : ""}`);
   },
+  getProduct(id: number) {
+    return request<Product>(`/api/products/${id}`);
+  },
   createProduct(payload: {
     barcode?: string | null;
     name: string;

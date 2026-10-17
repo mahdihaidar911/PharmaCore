@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { AdjustStockModal } from "../components/AdjustStockModal";
+import { ExpiryCell } from "../components/ExpiryCell";
 import { Icon } from "../components/icons";
 import { PageShell, ScrollBox } from "../components/PageShell";
 import { Pagination } from "../components/Pagination";
 import { ProductName } from "../components/ProductName";
-import { Alert, EmptyState, SearchInput, Spinner, Status } from "../components/ui";
+import { Alert, EmptyState, SearchInput, Spinner } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api, formatUsd, parseServerDate, type BatchExpiryFilter, type BatchListResult, type BatchSort, type StockBatch } from "../lib/api";
-import { daysUntil, expiryStatus } from "../lib/expiry";
+import { toast } from "../lib/toast";
 
 const PAGE_SIZE = 50;
 
@@ -33,7 +34,6 @@ export default function InventoryPage() {
   const [sort, setSort] = useState<BatchSort>("expiry");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [adjusting, setAdjusting] = useState<StockBatch | null>(null);
   const canAdjust = useAuth().can("inventory.adjust");
 
@@ -78,7 +78,6 @@ export default function InventoryPage() {
       }
     >
       {error ? <Alert tone="error" className="mb-3">{error}</Alert> : null}
-      {notice ? <Alert tone="success" className="mb-3">{notice}</Alert> : null}
 
       <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <SearchInput
@@ -143,20 +142,18 @@ export default function InventoryPage() {
             </thead>
             <tbody>
               {batches.map((batch) => {
-                const st = expiryStatus(daysUntil(batch.expiry_date));
                 return (
                   <tr key={batch.id}>
                     <td className="w-full max-w-0 min-w-56">
-                      <ProductName name={batch.product_name} />
+                      <Link to={`/products?product=${batch.product_id}`} className="block rounded-xs hover:[&_span]:text-accent-text" title="Open product">
+                        <ProductName name={batch.product_name} />
+                      </Link>
                     </td>
                     <td className="code hidden text-fg-2 md:table-cell">{batch.moph_code ?? "—"}</td>
                     <td className="code hidden text-fg-2 lg:table-cell">{batch.barcode ?? "—"}</td>
                     <td className="num font-medium">{batch.qty}</td>
                     <td className="whitespace-nowrap">
-                      <span className="code mr-2 text-fg">{batch.expiry_date}</span>
-                      <Status tone={st.tone} icon={st.tone === "muted" ? null : undefined} className="text-xs">
-                        {st.label}
-                      </Status>
+                      <ExpiryCell date={batch.expiry_date} />
                     </td>
                     <td className="num hidden sm:table-cell">{formatUsd(batch.sale_price_usd)}</td>
                     <td className="code hidden whitespace-nowrap text-fg-3 lg:table-cell">{parseServerDate(batch.received_at).toLocaleDateString("en-CA")}</td>
@@ -189,7 +186,7 @@ export default function InventoryPage() {
           onClose={() => setAdjusting(null)}
           onDone={(message) => {
             setAdjusting(null);
-            setNotice(message);
+            toast(message);
             void loadBatches();
           }}
         />

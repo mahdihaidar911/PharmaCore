@@ -149,6 +149,8 @@ export function Modal({
   children,
   footer,
   size = "md",
+  side = false,
+  heading,
 }: {
   open: boolean;
   title: string;
@@ -156,6 +158,10 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
   size?: "sm" | "md" | "lg";
+  /** Full-height panel docked to the right edge instead of a centred dialog. */
+  side?: boolean;
+  /** Replaces the plain title in the header; `title` stays the accessible name. */
+  heading?: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -200,20 +206,26 @@ export function Modal({
 
   if (!open) return null;
   const width = { sm: "sm:max-w-sm", md: "sm:max-w-lg", lg: "sm:max-w-3xl" }[size];
+  const frame = side
+    ? "flex justify-end bg-scrim"
+    : "flex items-end justify-center bg-scrim p-0 sm:items-center sm:p-4";
+  const panel = side
+    ? `h-full w-full ${width} animate-slide-in border-l border-line-strong`
+    : `max-h-[90vh] w-full ${width} animate-enter rounded-t-lg border border-line-strong sm:rounded-lg`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-0 sm:items-center sm:p-4" onMouseDown={onClose}>
+    <div className={`fixed inset-0 z-50 ${frame}`} onMouseDown={onClose}>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`flex max-h-[90vh] w-full ${width} animate-enter flex-col overflow-hidden rounded-t-lg border border-line-strong bg-surface text-fg shadow-overlay sm:rounded-lg`}
+        className={`flex flex-col overflow-hidden bg-surface text-fg shadow-overlay ${panel}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
-          <h2 className="text-base font-semibold tracking-[-0.01em] text-fg">{title}</h2>
-          <button type="button" className="btn btn-ghost btn-sm btn-icon -mr-2" onClick={onClose} aria-label="Close">
+        <div className={`flex justify-between gap-3 border-b border-line px-5 py-3 ${heading ? "items-start" : "items-center"}`}>
+          {heading ?? <h2 className="text-base font-semibold tracking-[-0.01em] text-fg">{title}</h2>}
+          <button type="button" className="btn btn-ghost btn-sm btn-icon -mr-2 shrink-0" onClick={onClose} aria-label="Close">
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
