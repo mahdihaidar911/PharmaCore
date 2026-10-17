@@ -128,11 +128,11 @@ export default function ReturnsPage() {
         <ScrollBox className="min-h-0 flex-1">
           {sale ? (
             <form onSubmit={handleSubmit} className="sheet">
-              <div className="border-b border-rule px-5 py-3">
+              <div className="border-b border-line px-5 py-3">
                 <p className="meta">{parseServerDate(sale.sale.created_at).toLocaleString()}</p>
                 <h2 className="font-serif text-xl font-semibold">
                   Invoice <span className="font-mono">#{sale.sale.id}</span>
-                  <span className="ml-3 font-sans text-sm font-normal text-ink-2">{formatUsd(sale.sale.total_usd)} paid</span>
+                  <span className="ml-3 font-sans text-sm font-normal text-fg-2">{formatUsd(sale.sale.total_usd)} paid</span>
                 </h2>
               </div>
               <table className="data-table">
@@ -155,7 +155,7 @@ export default function ReturnsPage() {
                           <ProductName name={line.product_name} />
                         </td>
                         <td className="num">{line.qty}</td>
-                        <td className="num text-ink-2">{line.qty_returned}</td>
+                        <td className="num text-fg-2">{line.qty_returned}</td>
                         <td className="num">
                           {returnable === 0 ? (
                             <Status tone="muted">All returned</Status>
@@ -185,13 +185,13 @@ export default function ReturnsPage() {
                 <div>
                   <p className="kicker">Refund due</p>
                   <p className="mt-1 font-serif text-3xl font-semibold">{formatUsd(expectedRefund)}</p>
-                  <p className="font-mono text-dense text-ink-2">{formatLbp(usdToLbp(expectedRefund, rate))}</p>
+                  <p className="font-mono text-dense text-fg-2">{formatLbp(usdToLbp(expectedRefund, rate))}</p>
                   <p className="meta mt-1">Includes the invoice discount share. Rate of the original sale.</p>
                 </div>
                 <div className="space-y-2">
                   {(["usd", "lbp"] as const).map((cur) => (
                     <div key={cur} className="flex items-stretch">
-                      <label htmlFor={`refund-${cur}`} className="flex w-14 shrink-0 items-center justify-center rounded-l-sm border border-r-0 border-line-input bg-paper-2 font-mono text-xs font-medium text-ink-2">
+                      <label htmlFor={`refund-${cur}`} className="flex w-14 shrink-0 items-center justify-center rounded-l-sm border border-r-0 border-line-input bg-surface-2 font-mono text-xs font-medium text-fg-2">
                         {cur.toUpperCase()}
                       </label>
                       <input
@@ -212,7 +212,7 @@ export default function ReturnsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end border-t border-rule bg-paper px-5 py-3">
+              <div className="flex justify-end border-t border-line bg-canvas px-5 py-3">
                 <button type="submit" className="btn btn-primary" disabled={expectedRefund <= 0}>
                   <Icon name="returns" className="h-4 w-4" /> Process return
                 </button>

@@ -53,7 +53,7 @@ export function AnalyzePanel() {
       <div className="card card-body flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="card-title">Business briefing</p>
-          <p className="text-sm text-ink-3">Figures are computed from PharmaCore. If an AI model is configured, it writes a short summary of them.</p>
+          <p className="text-sm text-fg-3">Figures are computed from PharmaCore. If an AI model is configured, it writes a short summary of them.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="segmented">
@@ -75,7 +75,7 @@ export function AnalyzePanel() {
 
       {result ? (
         <>
-          <p className="text-xs text-ink-3">
+          <p className="text-xs text-fg-3">
             Period {result.period.from} → {result.period.to}
           </p>
 
@@ -119,7 +119,7 @@ export function AnalyzePanel() {
                     {result.ai_error} The highlights on the left are still accurate.
                   </Alert>
                 ) : (
-                  <p className="text-sm text-ink-3">No AI model is configured, so only the computed highlights are shown.</p>
+                  <p className="text-sm text-fg-3">No AI model is configured, so only the computed highlights are shown.</p>
                 )}
               </div>
             </section>

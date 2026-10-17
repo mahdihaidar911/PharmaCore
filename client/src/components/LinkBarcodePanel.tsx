@@ -104,14 +104,14 @@ export function LinkBarcodePanel({ barcode, onLinked, onCancel }: Props) {
   }
 
   return (
-    <div data-pos-link-panel className="shrink-0 rounded-md border border-caution-rule border-l-[3px] border-l-caution bg-paper-0 p-4">
+    <div data-pos-link-panel className="shrink-0 rounded-md border border-caution-line border-l-[3px] border-l-caution bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="kicker flex items-center gap-1.5 text-caution">
             <Icon name="barcode" className="h-3.5 w-3.5" /> Unknown barcode
           </p>
-          <p className="mt-1 font-mono text-lg font-medium text-ink">{barcode}</p>
-          <p className="mt-0.5 text-dense text-ink-3">Link it to a catalogue product once — every later scan will find it.</p>
+          <p className="mt-1 font-mono text-lg font-medium text-fg">{barcode}</p>
+          <p className="mt-0.5 text-dense text-fg-3">Link it to a catalogue product once — every later scan will find it.</p>
         </div>
         <button type="button" onClick={onCancel} className="btn btn-secondary btn-sm">
           Cancel
@@ -146,17 +146,17 @@ export function LinkBarcodePanel({ barcode, onLinked, onCancel }: Props) {
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.stopPropagation()}
           />
-          <ScrollBox className="max-h-56 rounded-sm border border-rule">
-            {loading ? <p className="px-3 py-3 text-dense text-ink-3">Searching…</p> : null}
-            {!loading && search.trim().length < 2 ? <p className="px-3 py-3 text-dense text-ink-3">Type to search the catalogue.</p> : null}
+          <ScrollBox className="max-h-56 rounded-sm border border-line">
+            {loading ? <p className="px-3 py-3 text-dense text-fg-3">Searching…</p> : null}
+            {!loading && search.trim().length < 2 ? <p className="px-3 py-3 text-dense text-fg-3">Type to search the catalogue.</p> : null}
             {!loading && search.trim().length >= 2 && results.length === 0 ? (
-              <p className="px-3 py-3 text-dense text-ink-3">No matches. Try another name, or add a new product.</p>
+              <p className="px-3 py-3 text-dense text-fg-3">No matches. Try another name, or add a new product.</p>
             ) : null}
             {results.map((product) => (
-              <div key={product.id} className="flex items-center justify-between gap-3 border-b border-rule px-3 py-2 last:border-0">
+              <div key={product.id} className="flex items-center justify-between gap-3 border-b border-line px-3 py-2 last:border-0">
                 <div className="min-w-0 flex-1">
                   <ProductName name={product.name} />
-                  <p className="text-xs text-ink-3">
+                  <p className="text-xs text-fg-3">
                     {product.moph_code ? <span className="code">MoPH {product.moph_code}</span> : "No MoPH code"}
                     {product.barcode ? <span className="code"> · {product.barcode}</span> : null} · {product.total_qty} in stock ·{" "}
                     {formatUsd(product.sale_price_usd)}

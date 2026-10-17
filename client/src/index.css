@@ -1,29 +1,38 @@
 @import "tailwindcss";
 
 /*
- * PharmaCore design system — "the dispensary ledger". See docs/DESIGN.md.
- * Tailwind's default palette is switched off: only the tokens below exist, so colours cannot drift per page.
- * Lime is a marker fill under ink (or text on forest-900) — never text or a line on paper.
- * Danger red is reserved for errors, expired stock and destructive actions.
+ * PharmaCore design system — "Graphite Console". See docs/DESIGN.md.
+ *
+ * Every colour is a role, never a hue: utilities such as bg-surface or text-fg-3 resolve a --c-* variable on the
+ * element itself, so a theme (html[data-theme]) or a contextual scope (.scope-graphite) re-themes every control
+ * inside it. Tailwind's default palette is switched off; a stray text-slate-500 renders no colour.
+ *
+ * Red (danger) is reserved for expired stock, errors and destructive actions. Status is never colour-only.
  */
 
 @font-face {
-  font-family: "IBM Plex Sans";
+  font-family: "Instrument Sans";
   font-weight: 400;
   font-display: swap;
-  src: url("./assets/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+  src: url("./assets/fonts/instrument-sans-latin-400-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "IBM Plex Sans";
+  font-family: "Instrument Sans";
   font-weight: 500;
   font-display: swap;
-  src: url("./assets/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+  src: url("./assets/fonts/instrument-sans-latin-500-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "IBM Plex Sans";
-  font-weight: 600 700;
+  font-family: "Instrument Sans";
+  font-weight: 600;
   font-display: swap;
-  src: url("./assets/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+  src: url("./assets/fonts/instrument-sans-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/instrument-sans-latin-700-normal.woff2") format("woff2");
 }
 @font-face {
   font-family: "IBM Plex Mono";
@@ -37,98 +46,239 @@
   font-display: swap;
   src: url("./assets/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
 }
-@font-face {
-  font-family: "IBM Plex Serif";
-  font-weight: 500;
-  font-display: swap;
-  src: url("./assets/fonts/ibm-plex-serif-latin-500-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Serif";
-  font-weight: 600 700;
-  font-display: swap;
-  src: url("./assets/fonts/ibm-plex-serif-latin-600-normal.woff2") format("woff2");
+
+/* ---------- Light: warm ivory work surfaces inside a graphite frame ---------- */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --c-canvas: #eeece5;
+  --c-surface: #fbfaf7;
+  --c-surface-2: #f3f1eb;
+  --c-surface-3: #e8e5dc;
+  --c-fg: #1a1d1c;
+  --c-fg-2: #444945;
+  --c-fg-3: #62675f;
+  --c-fg-4: #9a9d95;
+  --c-line: #e0ddd3;
+  --c-line-strong: #c8c3b5;
+  --c-line-input: #8f8b7f;
+  --c-accent: #0e6b4e;
+  --c-accent-hover: #0b5a41;
+  --c-accent-press: #084834;
+  --c-accent-fg: #f6fbf8;
+  --c-accent-text: #0b6649;
+  --c-accent-soft: #e1f0e8;
+  --c-accent-line: #9ccbb4;
+  --c-signal: #12a06c;
+  --c-danger: #b0261b;
+  --c-danger-strong: #911c13;
+  --c-danger-ink: #7a1a12;
+  --c-danger-bg: #fbe8e4;
+  --c-danger-line: #efbcb3;
+  --c-caution: #8c5800;
+  --c-caution-ink: #5a3900;
+  --c-caution-bg: #faefd4;
+  --c-caution-line: #e6c983;
+  --c-focus: #0e6b4e;
+  --c-scrim: rgb(20 23 22 / 0.5);
+  --c-shadow-raised: 0 1px 0 rgb(26 29 28 / 0.04), 0 1px 3px rgb(26 29 28 / 0.05);
+  --c-shadow-overlay: 0 1px 2px rgb(26 29 28 / 0.1), 0 18px 40px -12px rgb(26 29 28 / 0.35);
+
+  --c-frame: #1b1e1d;
+  --c-frame-2: #262a28;
+  --c-frame-3: #313633;
+  --c-frame-fg: #ebe8df;
+  --c-frame-fg-2: #a4a89f;
+  --c-frame-line: #2f3431;
 }
 
-@theme {
+/* ---------- Dark: charcoal surfaces, borders carry depth, emerald brightens ---------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --c-canvas: #121514;
+  --c-surface: #191d1b;
+  --c-surface-2: #202523;
+  --c-surface-3: #2a302d;
+  --c-fg: #ecebe4;
+  --c-fg-2: #c3c6bd;
+  --c-fg-3: #979c93;
+  --c-fg-4: #6a6f68;
+  --c-line: #2a302d;
+  --c-line-strong: #3b423e;
+  --c-line-input: #5d6560;
+  --c-accent: #2fb380;
+  --c-accent-hover: #3cc28e;
+  --c-accent-press: #27a173;
+  --c-accent-fg: #06150f;
+  --c-accent-text: #5fd3a2;
+  --c-accent-soft: #14322a;
+  --c-accent-line: #276a50;
+  --c-signal: #3fd69a;
+  --c-danger: #ff8a7a;
+  --c-danger-strong: #ff9f92;
+  --c-danger-ink: #ffcdc5;
+  --c-danger-bg: #3a1916;
+  --c-danger-line: #6e2d25;
+  --c-caution: #eab558;
+  --c-caution-ink: #f6dba6;
+  --c-caution-bg: #332713;
+  --c-caution-line: #6b511f;
+  --c-focus: #5fd3a2;
+  --c-scrim: rgb(0 0 0 / 0.6);
+  --c-shadow-raised: 0 0 0 transparent;
+  --c-shadow-overlay: 0 0 0 1px rgb(255 255 255 / 0.04), 0 20px 48px -12px rgb(0 0 0 / 0.7);
+
+  --c-frame: #0c0e0d;
+  --c-frame-2: #181c1a;
+  --c-frame-3: #222724;
+  --c-frame-fg: #e6e4dc;
+  --c-frame-fg-2: #8f948b;
+  --c-frame-line: #1f2421;
+}
+
+/*
+ * Graphite scope: a region that belongs to the instrument rather than the page (rail, command bar, checkout
+ * column, dark POS). Re-maps the roles so ordinary inputs, segmented controls and buttons work unchanged inside
+ * it. It sets no background itself: the region chooses bg-frame or bg-canvas explicitly.
+ */
+.scope-graphite {
+  color-scheme: dark;
+  --c-canvas: #141716;
+  --c-surface: #1e2220;
+  --c-surface-2: #272c29;
+  --c-surface-3: #323834;
+  --c-fg: #f0eee7;
+  --c-fg-2: #c9ccc3;
+  --c-fg-3: #9ca197;
+  --c-fg-4: #6d726b;
+  --c-line: #2e3431;
+  --c-line-strong: #434a46;
+  --c-line-input: #5f6762;
+  --c-accent: #2fb380;
+  --c-accent-hover: #3cc28e;
+  --c-accent-press: #27a173;
+  --c-accent-fg: #06150f;
+  --c-accent-text: #62d5a5;
+  --c-accent-soft: #163a2e;
+  --c-accent-line: #2a7356;
+  --c-danger: #ff8a7a;
+  --c-danger-ink: #ffcdc5;
+  --c-danger-bg: #3d1a17;
+  --c-danger-line: #74302a;
+  --c-caution: #eab558;
+  --c-caution-ink: #f6dba6;
+  --c-caution-bg: #352914;
+  --c-caution-line: #6e5420;
+  --c-focus: #62d5a5;
+  --c-shadow-raised: 0 0 0 transparent;
+}
+[data-theme="dark"] .scope-graphite {
+  --c-canvas: #0f1211;
+  --c-surface: #171b19;
+  --c-surface-2: #1f2421;
+}
+
+@theme inline {
   --color-*: initial;
 
-  /* Paper — surfaces from raised sheet to pressed */
-  --color-paper-0: #fcfbf6;
-  --color-paper: #f4f1e7;
-  --color-paper-2: #eae5d6;
-  --color-paper-3: #ddd7c4;
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-fg: var(--c-fg);
+  --color-fg-2: var(--c-fg-2);
+  --color-fg-3: var(--c-fg-3);
+  --color-fg-4: var(--c-fg-4);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-line-input: var(--c-line-input);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-press: var(--c-accent-press);
+  --color-accent-fg: var(--c-accent-fg);
+  --color-accent-text: var(--c-accent-text);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-accent-line: var(--c-accent-line);
+  --color-signal: var(--c-signal);
+  --color-danger: var(--c-danger);
+  --color-danger-strong: var(--c-danger-strong);
+  --color-danger-ink: var(--c-danger-ink);
+  --color-danger-bg: var(--c-danger-bg);
+  --color-danger-line: var(--c-danger-line);
+  --color-caution: var(--c-caution);
+  --color-caution-ink: var(--c-caution-ink);
+  --color-caution-bg: var(--c-caution-bg);
+  --color-caution-line: var(--c-caution-line);
+  --color-focus: var(--c-focus);
+  --color-scrim: var(--c-scrim);
+  --color-frame: var(--c-frame);
+  --color-frame-2: var(--c-frame-2);
+  --color-frame-3: var(--c-frame-3);
+  --color-frame-fg: var(--c-frame-fg);
+  --color-frame-fg-2: var(--c-frame-fg-2);
+  --color-frame-line: var(--c-frame-line);
+  --color-transparent: transparent;
+  --color-current: currentColor;
 
-  /* Ink — text */
-  --color-ink: #181b16;
-  --color-ink-2: #41453c;
-  --color-ink-3: #646859;
-  --color-ink-4: #8e907f;
-
-  /* Lines */
-  --color-rule: #dad4c2;
-  --color-rule-strong: #b5ae97;
-  --color-line-input: #8a8470;
-
-  /* Forest — structure and primary action */
-  --color-forest-50: #eaf0e8;
-  --color-forest-100: #d6e2d4;
-  --color-forest-200: #b3c9b2;
-  --color-forest-300: #86a98a;
-  --color-forest-500: #3f7a5e;
-  --color-forest-600: #2a6249;
-  --color-forest-700: #1e4c38;
-  --color-forest-800: #163a2b;
-  --color-forest-900: #0f271d;
-
-  /* Lime — marker */
-  --color-lime-200: #e6f3ae;
-  --color-lime-300: #d2ea72;
-  --color-lime-400: #bedb4e;
-
-  /* Semantic */
-  --color-danger: #a3261b;
-  --color-danger-strong: #851d14;
-  --color-danger-ink: #6e1a12;
-  --color-danger-bg: #f7e4df;
-  --color-danger-rule: #e2b4aa;
-  --color-caution: #8a5300;
-  --color-caution-ink: #4f3000;
-  --color-caution-bg: #f6ebcb;
-  --color-caution-rule: #e0c98a;
-
-  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --font-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --font-sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
 
-  /* Type scale: 11 label · 12 meta · 13 table · 14 body · 16 lead · 20 section · 24 title · 32/44 totals */
+  /* 11 label · 12 meta · 13 table · 14 body · 15 lead · 22 page title · 30 figure · 52 readout */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
   --text-dense: 0.8125rem;
   --text-dense--line-height: 1.25rem;
-  --text-title: 1.5rem;
+  --text-lead: 0.9375rem;
+  --text-lead--line-height: 1.4rem;
+  --text-title: 1.375rem;
   --text-title--line-height: 1.2;
-  --text-total: 2.75rem;
-  --text-total--line-height: 1;
+  --text-figure: 1.875rem;
+  --text-figure--line-height: 1.05;
+  --text-readout: 3.25rem;
+  --text-readout--line-height: 1;
 
-  /* Radii: small and deliberate. Overrides Tailwind's so legacy rounded-xl/2xl cannot balloon. */
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 6px;
-  --radius-2xl: 6px;
+  /* Radii: controls 5, sheets 8, overlays 10. Legacy rounded-2xl cannot balloon past 12. */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
 
-  /* Elevation exists only for things that float above the page */
   --shadow-xs: 0 0 #0000;
-  --shadow-sm: 0 0 #0000;
-  --shadow-md: 0 0 #0000;
-  --shadow-overlay: 0 1px 2px rgb(24 27 22 / 0.08), 0 12px 32px -8px rgb(24 27 22 / 0.28);
-  --shadow-lg: var(--shadow-overlay);
-  --shadow-xl: var(--shadow-overlay);
-  --shadow-2xl: var(--shadow-overlay);
+  --shadow-sm: var(--c-shadow-raised);
+  --shadow-md: var(--c-shadow-raised);
+  --shadow-raised: var(--c-shadow-raised);
+  --shadow-overlay: var(--c-shadow-overlay);
+  --shadow-lg: var(--c-shadow-overlay);
+  --shadow-xl: var(--c-shadow-overlay);
+  --shadow-2xl: var(--c-shadow-overlay);
 
-  --default-transition-duration: 120ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --default-transition-duration: 140ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --animate-enter: enter 160ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  --animate-slide-in: slide-in 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  --animate-flash: flash 900ms ease-out;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+@keyframes flash {
+  from {
+    background-color: color-mix(in srgb, var(--c-accent) 26%, transparent);
+  }
 }
 
 html,
@@ -138,23 +288,23 @@ body,
 }
 
 body {
-  @apply overflow-hidden bg-paper font-sans text-sm text-ink antialiased;
+  @apply overflow-hidden bg-frame font-sans text-sm text-fg antialiased;
   font-variant-numeric: tabular-nums lining-nums;
-  scrollbar-color: var(--color-rule-strong) transparent;
+  font-feature-settings: "cv11";
 }
 
 ::selection {
-  background: var(--color-lime-300);
-  color: var(--color-ink);
+  background: var(--c-accent-soft);
+  color: var(--c-fg);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-rule-strong) transparent;
+  scrollbar-color: var(--c-line-strong) transparent;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-ink);
+  outline: 2px solid var(--c-focus);
   outline-offset: 2px;
 }
 
@@ -169,21 +319,21 @@ body {
 }
 
 @layer components {
-  /* ---------- Buttons: 36px; lg 48px for the till; 44px minimum on touch screens ---------- */
+  /* ---------- Buttons: 36px; lg 48px; 44px minimum on touch screens ---------- */
   .btn {
     @apply inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-sm border border-transparent px-3.5 text-sm font-medium whitespace-nowrap transition-colors select-none disabled:cursor-not-allowed disabled:opacity-45;
   }
   .btn-primary {
-    @apply bg-forest-700 text-paper-0 hover:bg-forest-800 active:bg-forest-900;
+    @apply bg-accent text-accent-fg hover:bg-accent-hover active:bg-accent-press;
   }
   .btn-secondary {
-    @apply border-line-input bg-paper-0 text-ink hover:bg-paper-2 active:bg-paper-3;
+    @apply border-line-strong bg-surface text-fg shadow-raised hover:border-line-input hover:bg-surface-2 active:bg-surface-3;
   }
   .btn-ghost {
-    @apply text-ink-2 hover:bg-paper-2 hover:text-ink active:bg-paper-3;
+    @apply text-fg-2 hover:bg-surface-2 hover:text-fg active:bg-surface-3;
   }
   .btn-danger {
-    @apply bg-danger text-paper-0 hover:bg-danger-strong;
+    @apply bg-danger text-surface hover:bg-danger-strong;
   }
   .btn-sm {
     @apply min-h-[30px] gap-1.5 px-2.5 text-dense;
@@ -194,34 +344,40 @@ body {
   .btn-icon {
     @apply min-w-9 px-0;
   }
+  .btn-sm.btn-icon {
+    @apply min-w-[30px];
+  }
 
-  /* Keyboard shortcut cap printed next to the action it triggers */
   .kbd {
-    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-xs border border-b-2 border-rule-strong bg-paper-0 px-1 font-mono text-[10.5px] leading-none font-medium text-ink-2;
+    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-xs border border-line-strong bg-surface-2 px-1 font-mono text-[10.5px] leading-none font-medium text-fg-3;
   }
   .btn-primary .kbd {
-    @apply border-forest-500 bg-forest-800 text-forest-100;
+    @apply border-transparent bg-[rgb(0_0_0/0.14)] text-accent-fg;
   }
 
   /* ---------- Fields ---------- */
   .field-label {
-    @apply mb-1 block text-xs font-medium text-ink-2;
+    @apply mb-1 block text-xs font-medium text-fg-2;
   }
   .field-hint {
-    @apply mt-1 text-xs text-ink-3;
+    @apply mt-1 text-xs text-fg-3;
   }
   .input {
-    @apply min-h-9 w-full rounded-sm border border-line-input bg-paper-0 px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:border-ink focus:shadow-[inset_0_0_0_1px_var(--color-ink)] focus:outline-none disabled:border-rule disabled:bg-paper disabled:text-ink-4;
+    @apply min-h-9 w-full rounded-sm border border-line-input/70 bg-surface px-3 py-1.5 text-sm text-fg transition-[border-color,box-shadow] placeholder:text-fg-3 hover:border-line-input focus:border-accent focus:shadow-[0_0_0_3px_var(--c-accent-soft)] focus:outline-none disabled:border-line disabled:bg-surface-2 disabled:text-fg-4;
   }
   select.input {
     @apply appearance-none bg-[length:12px] bg-[right_0.75rem_center] bg-no-repeat pr-8;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5 6 8.5 10 4.5' fill='none' stroke='%2341453c' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5 6 8.5 10 4.5' fill='none' stroke='%23888c84' stroke-width='1.5'/%3E%3C/svg%3E");
   }
   .input-lg {
     @apply min-h-[52px] px-4 text-lg;
   }
   .input-invalid {
-    @apply border-danger focus:border-danger focus:shadow-[inset_0_0_0_1px_var(--color-danger)];
+    @apply border-danger focus:border-danger focus:shadow-[0_0_0_3px_var(--c-danger-bg)];
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--c-accent);
   }
 
   @media (pointer: coarse) {
@@ -232,30 +388,29 @@ body {
   }
 
   /* ---------- Surfaces ---------- */
-  /* A sheet is the one surface: paper-0 with a hairline. No nesting sheets inside sheets. */
   .sheet,
   .card {
-    @apply rounded-md border border-rule bg-paper-0;
+    @apply rounded-md border border-line bg-surface shadow-raised;
   }
   .card-body {
     @apply p-5;
   }
   .card-title {
-    @apply text-[15px] font-semibold text-ink;
+    @apply text-[15px] font-semibold text-fg;
   }
 
-  /* Section heading: heavy ink rule + kicker label, instead of a box */
+  /* Section heading: label, count, hairline to the action */
   .section-head {
-    @apply flex min-h-9 items-center justify-between gap-3 border-t-2 border-ink pt-1.5 pb-1;
+    @apply flex min-h-9 items-center gap-3;
   }
   .kicker {
-    @apply text-2xs font-semibold tracking-[0.09em] text-ink uppercase;
+    @apply text-2xs font-semibold tracking-[0.08em] text-fg-3 uppercase;
   }
   .meta {
-    @apply text-xs text-ink-3;
+    @apply text-xs text-fg-3;
   }
   .code {
-    @apply font-mono text-[0.92em] tracking-tight;
+    @apply font-mono text-[0.9em] tracking-tight;
   }
 
   /* Tags (record kind, role). States use .status instead. */
@@ -263,25 +418,25 @@ body {
     @apply inline-flex items-center gap-1 rounded-xs border px-1.5 py-px text-xs leading-4 font-medium;
   }
   .badge-neutral {
-    @apply border-rule bg-paper-2 text-ink-2;
+    @apply border-line bg-surface-2 text-fg-2;
   }
   .badge-brand,
   .badge-success {
-    @apply border-forest-200 bg-forest-50 text-forest-800;
+    @apply border-accent-line bg-accent-soft text-accent-text;
   }
   .badge-warning {
-    @apply border-caution-rule bg-caution-bg text-caution-ink;
+    @apply border-caution-line bg-caution-bg text-caution-ink;
   }
   .badge-danger {
-    @apply border-danger-rule bg-danger-bg text-danger-ink;
+    @apply border-danger-line bg-danger-bg text-danger-ink;
   }
 
-  /* State written as glyph + word; colour reinforces, never carries meaning alone */
+  /* State written as glyph + word */
   .status {
     @apply inline-flex items-center gap-1.5 text-dense font-medium whitespace-nowrap;
   }
   .status-ok {
-    @apply text-forest-700;
+    @apply text-accent-text;
   }
   .status-caution {
     @apply text-caution;
@@ -290,38 +445,47 @@ body {
     @apply text-danger;
   }
   .status-muted {
-    @apply text-ink-3;
+    @apply text-fg-3;
   }
 
-  /* Inline notices */
+  /* Live signal dot (drawer open, scanner ready) */
+  .signal {
+    @apply relative inline-block h-2 w-2 shrink-0 rounded-full bg-signal;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-signal) 22%, transparent);
+  }
+  .signal-caution {
+    @apply bg-caution;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-caution) 22%, transparent);
+  }
+
   .alert {
-    @apply flex gap-2.5 rounded-sm border border-l-[3px] px-3.5 py-2.5 text-sm;
+    @apply flex gap-2.5 rounded-sm border px-3.5 py-2.5 text-sm;
   }
   .alert-info {
-    @apply border-rule border-l-ink-3 bg-paper-2 text-ink;
+    @apply border-line bg-surface-2 text-fg;
   }
   .alert-success {
-    @apply border-forest-200 border-l-forest-600 bg-forest-50 text-forest-900;
+    @apply border-accent-line bg-accent-soft text-fg;
   }
   .alert-warning {
-    @apply border-caution-rule border-l-caution bg-caution-bg text-caution-ink;
+    @apply border-caution-line bg-caution-bg text-caution-ink;
   }
   .alert-error {
-    @apply border-danger-rule border-l-danger bg-danger-bg text-danger-ink;
+    @apply border-danger-line bg-danger-bg text-danger-ink;
   }
 
-  /* ---------- Ledger tables: 36px rows, ink rule under the header ---------- */
+  /* ---------- Tables: compact, sticky header, emerald edge for the selected row ---------- */
   .data-table {
     @apply min-w-full text-dense;
   }
   .data-table thead {
-    @apply sticky top-0 z-10 bg-paper-0 text-left;
+    @apply sticky top-0 z-10 bg-surface text-left;
   }
   .data-table th {
-    @apply h-9 border-b border-ink px-3 text-xs font-medium whitespace-nowrap text-ink-2;
+    @apply h-9 border-b border-line-strong px-3 text-2xs font-semibold tracking-[0.06em] whitespace-nowrap text-fg-3 uppercase;
   }
   .data-table td {
-    @apply border-b border-rule px-3 py-2 align-middle;
+    @apply border-b border-line px-3 py-2 align-middle;
   }
   .data-table th:first-child,
   .data-table td:first-child {
@@ -331,21 +495,49 @@ body {
   .data-table td:last-child {
     @apply pr-4;
   }
+  .data-table tbody tr {
+    @apply transition-colors;
+  }
   .data-table tbody tr:hover > td {
-    @apply bg-paper;
+    @apply bg-surface-2;
+  }
+  .data-table tbody tr[aria-selected="true"] > td,
+  .data-table tbody tr.is-selected > td {
+    @apply bg-accent-soft;
+  }
+  .data-table tbody tr[aria-selected="true"] > td:first-child,
+  .data-table tbody tr.is-selected > td:first-child {
+    box-shadow: inset 3px 0 0 var(--c-accent);
   }
   .data-table .num {
     @apply text-right whitespace-nowrap;
   }
 
-  /* ---------- Segmented control (mutually exclusive options) ---------- */
+  /* ---------- Segmented control: track + raised selection ---------- */
   .segmented {
-    @apply inline-flex overflow-hidden rounded-sm border border-line-input bg-paper-0;
+    @apply inline-flex gap-0.5 rounded-sm border border-line bg-surface-2 p-0.5;
   }
   .tab {
-    @apply min-h-8 cursor-pointer border-r border-rule px-3 text-dense font-medium text-ink-2 last:border-r-0 hover:bg-paper-2 hover:text-ink;
+    @apply min-h-7 cursor-pointer rounded-xs px-3 text-dense font-medium whitespace-nowrap text-fg-3 transition-colors hover:text-fg;
   }
   .tab-active {
-    @apply bg-ink text-paper-0 hover:bg-ink hover:text-paper-0;
+    @apply bg-surface text-fg shadow-[0_1px_2px_rgb(0_0_0/0.08)] ring-1 ring-line hover:text-fg;
+  }
+
+  /* Stock meter: thin bar, tone + text label always beside it */
+  .meter {
+    @apply relative block h-1 w-full overflow-hidden rounded-full bg-surface-3;
+  }
+  .meter > span {
+    @apply absolute inset-y-0 left-0 rounded-full bg-fg-3;
+  }
+  .meter-ok > span {
+    @apply bg-accent;
+  }
+  .meter-caution > span {
+    @apply bg-caution;
+  }
+  .meter-danger > span {
+    @apply bg-danger;
   }
 }

@@ -1,4 +1,4 @@
-import type { FormEvent, ReactNode, RefObject } from "react";
+import type { FormEvent, RefObject } from "react";
 import { Link } from "react-router-dom";
 import { formatLbp, formatUsd, usdToLbp, type SaleDetail } from "../../lib/api";
 import { Icon } from "../icons";
@@ -13,15 +13,6 @@ const METHODS: { value: PaymentMethod; label: string; title: string }[] = [
 ];
 
 type Change = { hasChange: boolean; changeUsd: number; changeLbp: number };
-
-function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-ink-2">{label}</span>
-      <span className="text-ink">{children}</span>
-    </div>
-  );
-}
 
 function TenderField({
   currency,
@@ -42,8 +33,8 @@ function TenderField({
 }) {
   const id = `tender-${currency.toLowerCase()}`;
   return (
-    <div className="flex items-stretch">
-      <label htmlFor={id} className="flex w-14 shrink-0 items-center justify-center rounded-l-sm border border-r-0 border-line-input bg-paper-2 font-mono text-xs font-medium text-ink-2">
+    <div className="flex items-stretch overflow-hidden rounded-sm border border-line-input/70 bg-surface focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--c-accent-soft)]">
+      <label htmlFor={id} className="flex w-14 shrink-0 items-center justify-center border-r border-line font-mono text-xs font-medium text-fg-3">
         {currency}
       </label>
       <input
@@ -53,7 +44,7 @@ function TenderField({
         step={step}
         inputMode="decimal"
         placeholder="0"
-        className="input min-h-10 rounded-none text-right text-base font-medium"
+        className="min-h-11 w-full min-w-0 bg-transparent px-3 text-right text-lg font-semibold text-fg placeholder:text-fg-4 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -61,7 +52,7 @@ function TenderField({
         type="button"
         onClick={onExact}
         disabled={disabled}
-        className="btn btn-secondary min-h-10 shrink-0 rounded-l-none border-l-0 px-2.5 text-dense"
+        className="flex shrink-0 cursor-pointer items-center gap-1.5 border-l border-line px-2.5 text-dense font-medium text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-45"
         title={`Customer pays the exact total in ${currency} (${shortcut})`}
       >
         Exact <span className="kbd">{shortcut}</span>
@@ -70,6 +61,7 @@ function TenderField({
   );
 }
 
+/** The checkout instrument: always a graphite surface, in both themes. */
 export function BillPanel({
   formRef,
   onSubmit,
@@ -140,50 +132,52 @@ export function BillPanel({
           : null;
 
   return (
-    <form ref={formRef} onSubmit={onSubmit} className="flex min-h-full flex-col" aria-label="Bill and payment">
-      <div className="px-5 pt-4">
-        <p className="kicker">Bill</p>
-        <div className="mt-2 text-sm">
-          <Row label="Subtotal">{formatUsd(subtotalUsd)}</Row>
-          {canDiscount ? (
-            <div className="flex items-center justify-between gap-3 py-1">
-              <label htmlFor="pos-discount" className="text-ink-2">
-                Discount
-              </label>
-              <div className="flex w-32 items-stretch">
-                <span className="flex w-9 items-center justify-center rounded-l-sm border border-r-0 border-line-input bg-paper-2 font-mono text-xs text-ink-2">$</span>
-                <input
-                  id="pos-discount"
-                  type="number"
-                  min={0}
-                  max={subtotalUsd}
-                  step="0.01"
-                  inputMode="decimal"
-                  className={`input min-h-8 rounded-l-none py-1 text-right ${discountInvalid ? "input-invalid" : ""}`}
-                  value={discountUsd}
-                  onChange={(e) => onDiscount(e.target.value)}
-                  onFocus={(e) => e.currentTarget.select()}
-                />
-              </div>
-            </div>
-          ) : null}
-          {discountInvalid ? (
-            <Status tone="danger" className="text-xs">
-              Discount cannot exceed the subtotal.
-            </Status>
-          ) : null}
-        </div>
+    <form ref={formRef} onSubmit={onSubmit} className="flex min-h-full flex-col" aria-label="Checkout">
+      <div className="flex items-center justify-between px-5 pt-4">
+        <p className="kicker">Checkout</p>
+        <p className="font-mono text-xs text-fg-3">1 USD = {rate.toLocaleString()} LBP</p>
       </div>
 
-      <div className="mx-5 mt-3 rounded-sm bg-forest-900 px-4 pt-3 pb-3.5 text-paper-0">
-        <div className="flex items-baseline justify-between">
-          <span className="text-2xs font-semibold tracking-[0.09em] text-forest-200 uppercase">Total</span>
-          <span className="font-mono text-xs text-forest-200">1 USD = {rate.toLocaleString()} LBP</span>
+      <div className="px-5 pt-3 text-sm">
+        <div className="flex items-baseline justify-between gap-3 py-1">
+          <span className="text-fg-2">Subtotal</span>
+          <span className="font-medium">{formatUsd(subtotalUsd)}</span>
         </div>
-        <p className="mt-1 text-right font-serif text-total font-semibold" aria-live="polite">
+        {canDiscount ? (
+          <div className="flex items-center justify-between gap-3 py-1">
+            <label htmlFor="pos-discount" className="text-fg-2">
+              Discount
+            </label>
+            <div className="flex w-32 items-stretch overflow-hidden rounded-sm border border-line-input/70 bg-surface focus-within:border-accent">
+              <span className="flex w-8 items-center justify-center border-r border-line font-mono text-xs text-fg-3">$</span>
+              <input
+                id="pos-discount"
+                type="number"
+                min={0}
+                max={subtotalUsd}
+                step="0.01"
+                inputMode="decimal"
+                className={`min-h-8 w-full min-w-0 bg-transparent px-2 text-right text-sm text-fg focus:outline-none ${discountInvalid ? "text-danger" : ""}`}
+                value={discountUsd}
+                onChange={(e) => onDiscount(e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </div>
+          </div>
+        ) : null}
+        {discountInvalid ? (
+          <Status tone="danger" className="text-xs">
+            Discount cannot exceed the subtotal.
+          </Status>
+        ) : null}
+      </div>
+
+      <div className="mx-5 mt-3 border-y border-line py-4">
+        <p className="kicker">Total due</p>
+        <p className="mt-1 text-readout font-bold tracking-[-0.035em] text-fg" aria-live="polite">
           {formatUsd(totalUsd)}
         </p>
-        <p className="mt-1 text-right font-mono text-sm text-forest-100">{formatLbp(totalLbp)}</p>
+        <p className="mt-1.5 font-mono text-base text-fg-2">{formatLbp(totalLbp)}</p>
       </div>
 
       <fieldset className="mt-4 px-5" disabled={drawerOpen === false}>
@@ -208,24 +202,26 @@ export function BillPanel({
         </div>
       </fieldset>
 
-      <div className="mt-3 px-5" aria-live="polite">
+      <div className="mt-4 min-h-[4.5rem] px-5" aria-live="polite">
         {tendered && !cartEmpty ? (
           insufficient ? (
-            <div className="rounded-sm border border-danger-rule border-l-[3px] border-l-danger bg-danger-bg px-3 py-2 text-danger-ink">
-              <p className="flex items-center gap-1.5 text-xs font-semibold tracking-[0.06em] uppercase">
+            <div className="rounded-sm border border-danger-line bg-danger-bg px-3.5 py-2.5 text-danger-ink">
+              <p className="flex items-center gap-1.5 text-2xs font-semibold tracking-[0.08em] uppercase">
                 <Icon name="alert" className="h-3.5 w-3.5" /> Still due
               </p>
-              <p className="mt-0.5 font-serif text-xl font-semibold">{formatUsd(dueUsd)}</p>
+              <p className="mt-0.5 text-2xl font-bold tracking-[-0.02em]">{formatUsd(dueUsd)}</p>
               <p className="font-mono text-xs">{formatLbp(usdToLbp(dueUsd, rate))}</p>
             </div>
           ) : change.hasChange ? (
-            <div className="rounded-sm bg-lime-300 px-3 py-2 text-ink">
-              <p className="text-xs font-semibold tracking-[0.06em] uppercase">Change to return</p>
-              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3">
-                {change.changeUsd > 0 ? <span className="font-serif text-2xl font-semibold">{formatUsd(change.changeUsd)}</span> : null}
-                {change.changeLbp > 0 ? <span className="font-serif text-2xl font-semibold">{formatLbp(change.changeLbp)}</span> : null}
+            <div className="rounded-sm border border-accent-line bg-accent-soft px-3.5 py-2.5">
+              <p className="flex items-center gap-1.5 text-2xs font-semibold tracking-[0.08em] text-accent-text uppercase">
+                <Icon name="cash" className="h-3.5 w-3.5" /> Change to return
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 text-accent-text">
+                {change.changeUsd > 0 ? <span className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em]">{formatUsd(change.changeUsd)}</span> : null}
+                {change.changeLbp > 0 ? <span className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em]">{formatLbp(change.changeLbp)}</span> : null}
               </div>
-              {change.changeUsd > 0 && change.changeLbp > 0 ? <p className="text-xs">Return both amounts.</p> : null}
+              {change.changeUsd > 0 && change.changeLbp > 0 ? <p className="text-xs text-fg-2">Return both amounts.</p> : null}
             </div>
           ) : (
             <Status tone="ok">Exact payment — no change</Status>
@@ -233,11 +229,13 @@ export function BillPanel({
         ) : null}
       </div>
 
-      <div className="mt-auto px-5 pt-4 pb-5">
+      <div className="mt-auto px-5 pt-3 pb-5">
         {drawerOpen === false ? (
-          <div className="mb-3 rounded-sm border border-caution-rule border-l-[3px] border-l-caution bg-caution-bg px-3 py-2 text-dense text-caution-ink">
-            <p className="font-semibold">The cash drawer is closed.</p>
-            <p>
+          <div className="mb-3 rounded-sm border border-caution-line bg-caution-bg px-3.5 py-2.5 text-dense text-caution-ink">
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Icon name="alert" className="h-4 w-4" /> The cash drawer is closed
+            </p>
+            <p className="mt-0.5">
               Sales cannot be completed until a shift is opened.{" "}
               <Link to="/cash" className="font-medium underline">
                 Open the drawer
@@ -258,7 +256,7 @@ export function BillPanel({
         {blockedReason && !checkingOut ? <p className="meta mt-2">{blockedReason}</p> : null}
 
         {lastSale ? (
-          <div className="mt-4 flex items-center justify-between gap-2 border-t border-rule pt-3 text-dense">
+          <div className="mt-4 flex items-center justify-between gap-2 border-t border-line pt-3 text-dense">
             <Status tone="ok">
               Sale <span className="code">#{lastSale.sale.id}</span> · {formatUsd(lastSale.sale.total_usd)}
             </Status>

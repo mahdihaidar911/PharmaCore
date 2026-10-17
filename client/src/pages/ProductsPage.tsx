@@ -149,11 +149,11 @@ export default function ProductsPage() {
                 />
               </Field>
               {editingId ? (
-                <label className="flex items-start gap-2 text-sm text-ink-2">
+                <label className="flex items-start gap-2 text-sm text-fg-2">
                   <input type="checkbox" className="mt-0.5 h-4 w-4" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
                   <span>
                     Active
-                    <span className="block text-xs text-ink-3">Inactive products are hidden from POS and cannot be sold. Stock and history are kept.</span>
+                    <span className="block text-xs text-fg-3">Inactive products are hidden from POS and cannot be sold. Stock and history are kept.</span>
                   </span>
                 </label>
               ) : null}
@@ -186,10 +186,10 @@ export default function ProductsPage() {
               }}
             />
             {canManage ? (
-              <label className="flex items-center gap-2 text-dense text-ink-2">
+              <label className="flex items-center gap-2 text-dense text-fg-2">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 accent-forest-700"
+                  className="h-4 w-4"
                   checked={showInactive}
                   onChange={(e) => {
                     setShowInactive(e.target.checked);
@@ -225,7 +225,7 @@ export default function ProductsPage() {
                 </thead>
                 <tbody>
                   {products.map((product) => (
-                    <tr key={product.id} className={editingId === product.id ? "[&>td]:bg-lime-200/70" : ""}>
+                    <tr key={product.id} className={editingId === product.id ? "is-selected" : ""}>
                       <td className={`w-full max-w-0 min-w-56 ${product.is_active ? "" : "opacity-60"}`}>
                         <ProductName name={product.name} />
                         {product.is_active ? null : (
@@ -234,13 +234,13 @@ export default function ProductsPage() {
                           </Status>
                         )}
                       </td>
-                      <td className="code hidden text-ink-2 md:table-cell">{product.moph_code ?? "—"}</td>
-                      <td className="code hidden text-ink-2 lg:table-cell">{product.barcode ?? <span className="text-ink-4">none</span>}</td>
+                      <td className="code hidden text-fg-2 md:table-cell">{product.moph_code ?? "—"}</td>
+                      <td className="code hidden text-fg-2 lg:table-cell">{product.barcode ?? <span className="text-fg-4">none</span>}</td>
                       <td className="num">
                         <span className="block font-medium">{formatUsd(product.sale_price_usd)}</span>
-                        <span className="block text-xs text-ink-3">{settings ? formatLbp(product.sale_price_usd * settings.exchange_rate) : ""}</span>
+                        <span className="block text-xs text-fg-3">{settings ? formatLbp(product.sale_price_usd * settings.exchange_rate) : ""}</span>
                       </td>
-                      <td className={`num ${product.total_qty > 0 ? "font-medium" : "text-ink-4"}`}>{product.total_qty}</td>
+                      <td className={`num ${product.total_qty > 0 ? "font-medium" : "text-fg-4"}`}>{product.total_qty}</td>
                       {canManage ? (
                         <td className="text-right">
                           <button type="button" onClick={() => startEdit(product)} className="btn btn-ghost btn-sm">

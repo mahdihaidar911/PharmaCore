@@ -29,14 +29,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
       <div className="w-full max-w-sm">
-        <p className="flex items-center gap-1.5 text-2xs font-semibold tracking-[0.12em] text-ink-3 uppercase">
+        <p className="flex items-center gap-1.5 text-2xs font-semibold tracking-[0.12em] text-fg-3 uppercase">
           <span className="h-2 w-2 bg-lime-400" aria-hidden />
           PharmaCore
         </p>
-        <h1 className="mt-2 border-b-2 border-ink pb-3 font-serif text-[2rem] leading-tight font-semibold text-ink">Sign in</h1>
-        <p className="mt-3 text-dense text-ink-2">Till, stock and records for the pharmacy. Your role decides what you can open.</p>
+        <h1 className="mt-2 border-b-2 border-fg pb-3 font-serif text-[2rem] leading-tight font-semibold text-fg">Sign in</h1>
+        <p className="mt-3 text-dense text-fg-2">Till, stock and records for the pharmacy. Your role decides what you can open.</p>
 
         {sessionExpired ? (
           <Alert tone="warning" className="mt-6">
@@ -67,7 +67,7 @@ export default function LoginPage() {
         </form>
 
         {import.meta.env.DEV ? (
-          <p className="mt-6 text-xs text-ink-3">
+          <p className="mt-6 text-xs text-fg-3">
             Development default: <code>admin</code> / <code>admin123</code>. Change it from the Account page.
           </p>
         ) : null}

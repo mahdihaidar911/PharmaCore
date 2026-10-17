@@ -19,7 +19,7 @@ function shiftDate(iso: string, days: number) {
 
 function Line({ label, children, strong = false }: { label: string; children: React.ReactNode; strong?: boolean }) {
   return (
-    <div className={`flex justify-between gap-3 py-0.5 ${strong ? "font-semibold text-ink" : "text-ink-2"}`}>
+    <div className={`flex justify-between gap-3 py-0.5 ${strong ? "font-semibold text-fg" : "text-fg-2"}`}>
       <span>{label}</span>
       <span>{children}</span>
     </div>
@@ -78,11 +78,11 @@ export default function SalesPage() {
 
       <div className="grid min-h-0 flex-1 gap-5 overflow-auto lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:overflow-hidden">
         <div className="sheet flex min-h-64 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-baseline justify-between border-b border-rule px-4 py-2 text-dense">
+          <div className="flex shrink-0 items-baseline justify-between border-b border-line px-4 py-2 text-dense">
             <span className="kicker">Invoices</span>
             {sales ? (
-              <span className="text-ink-2">
-                {sales.length} · <span className="font-medium text-ink">{formatUsd(dayTotal)}</span>
+              <span className="text-fg-2">
+                {sales.length} · <span className="font-medium text-fg">{formatUsd(dayTotal)}</span>
               </span>
             ) : null}
           </div>
@@ -106,17 +106,17 @@ export default function SalesPage() {
                     return (
                       <tr
                         key={sale.id}
-                        className={`cursor-pointer ${active ? "[&>td]:bg-lime-200/70" : ""}`}
+                        className={`cursor-pointer ${active ? "is-selected" : ""}`}
                         onClick={() => viewSale(sale.id)}
                       >
                         <td>
-                          <button type="button" className="code font-medium text-ink hover:underline" onClick={(e) => (e.stopPropagation(), viewSale(sale.id))} aria-pressed={active}>
+                          <button type="button" className="code font-medium text-fg hover:underline" onClick={(e) => (e.stopPropagation(), viewSale(sale.id))} aria-pressed={active}>
                             #{sale.id}
                           </button>
                         </td>
-                        <td className="code text-ink-2">{time(sale.created_at)}</td>
-                        <td className="hidden text-ink-2 sm:table-cell">{sale.cashier_name ?? "—"}</td>
-                        <td className="text-ink-2">{METHOD_LABEL[sale.payment_method] ?? sale.payment_method}</td>
+                        <td className="code text-fg-2">{time(sale.created_at)}</td>
+                        <td className="hidden text-fg-2 sm:table-cell">{sale.cashier_name ?? "—"}</td>
+                        <td className="text-fg-2">{METHOD_LABEL[sale.payment_method] ?? sale.payment_method}</td>
                         <td className="num font-medium">{formatUsd(sale.total_usd)}</td>
                       </tr>
                     );
@@ -157,7 +157,7 @@ export default function SalesPage() {
                           ) : null}
                         </td>
                         <td className="num">
-                          {line.qty} <span className="text-ink-3">× {formatUsd(line.unit_price_usd)}</span>
+                          {line.qty} <span className="text-fg-3">× {formatUsd(line.unit_price_usd)}</span>
                         </td>
                         <td className="num !pr-0 font-medium">{formatUsd(line.line_total_usd)}</td>
                       </tr>
@@ -166,7 +166,7 @@ export default function SalesPage() {
                 </table>
                 <div className="mt-3 ml-auto max-w-xs text-dense">
                   {selected.sale.discount_usd > 0 ? <Line label="Discount">−{formatUsd(selected.sale.discount_usd)}</Line> : null}
-                  <div className="border-t-2 border-ink pt-1">
+                  <div className="border-t-2 border-fg pt-1">
                     <Line label="Total" strong>
                       {formatUsd(selected.sale.total_usd)}
                     </Line>
@@ -185,7 +185,7 @@ export default function SalesPage() {
                   <Line label="Rate">1 USD = {selected.sale.exchange_rate_used.toLocaleString()} LBP</Line>
                 </div>
               </ScrollBox>
-              <div className="flex shrink-0 flex-wrap gap-2 border-t border-rule bg-paper px-5 py-3">
+              <div className="flex shrink-0 flex-wrap gap-2 border-t border-line bg-canvas px-5 py-3">
                 <button type="button" onClick={() => printReceipt(selected)} className="btn btn-primary">
                   <Icon name="printer" className="h-4 w-4" /> Print receipt
                 </button>

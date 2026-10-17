@@ -76,24 +76,24 @@ export function ChatPanel({ configured }: { configured: boolean }) {
 
         {turns.length === 0 ? (
           <div className="max-w-2xl py-2">
-            <p className="font-serif text-xl font-semibold text-ink">Ask about your pharmacy's data</p>
-            <p className="mt-1 text-dense text-ink-3">
+            <p className="font-serif text-xl font-semibold text-fg">Ask about your pharmacy's data</p>
+            <p className="mt-1 text-dense text-fg-3">
               Answers are calculated from PharmaCore's records. Each answer lists the data it used. This assistant does not give medical advice.
             </p>
             {suggestions.length > 0 ? (
               <>
                 <p className="kicker mt-5">Try asking</p>
-                <ul className="mt-1 border-t border-rule">
+                <ul className="mt-1 border-t border-line">
                   {suggestions.map((s) => (
-                    <li key={s.text} className="border-b border-rule">
+                    <li key={s.text} className="border-b border-line">
                       <button
                         type="button"
                         disabled={!configured || sending}
                         onClick={() => send(s.text)}
-                        className="flex w-full items-center justify-between gap-3 px-1 py-2.5 text-left text-dense text-ink-2 hover:bg-paper hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex w-full items-center justify-between gap-3 px-1 py-2.5 text-left text-dense text-fg-2 hover:bg-canvas hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {s.text}
-                        <Icon name="arrowRight" className="h-4 w-4 shrink-0 text-ink-3" />
+                        <Icon name="arrowRight" className="h-4 w-4 shrink-0 text-fg-3" />
                       </button>
                     </li>
                   ))}
@@ -105,9 +105,9 @@ export function ChatPanel({ configured }: { configured: boolean }) {
 
         {turns.map((turn, i) =>
           turn.role === "user" ? (
-            <div key={i} className="max-w-3xl border-t-2 border-ink pt-2">
+            <div key={i} className="max-w-3xl border-t-2 border-fg pt-2">
               <p className="kicker">Question</p>
-              <p className="mt-0.5 whitespace-pre-wrap font-medium text-ink">{turn.content}</p>
+              <p className="mt-0.5 whitespace-pre-wrap font-medium text-fg">{turn.content}</p>
             </div>
           ) : (
             <AssistantMessage key={i} turn={turn} />
@@ -119,7 +119,7 @@ export function ChatPanel({ configured }: { configured: boolean }) {
         ) : null}
       </div>
 
-      <form onSubmit={onSubmit} className="flex shrink-0 items-end gap-2 border-t border-rule bg-paper p-3">
+      <form onSubmit={onSubmit} className="flex shrink-0 items-end gap-2 border-t border-line bg-canvas p-3">
         <textarea
           ref={inputRef}
           rows={1}
@@ -156,13 +156,13 @@ function AssistantMessage({ turn }: { turn: Extract<Turn, { role: "assistant" }>
   const sources = reply?.tool_calls ?? [];
 
   return (
-    <div className="max-w-3xl space-y-2 border-l-2 border-forest-700 pl-4">
+    <div className="max-w-3xl space-y-2 border-l-2 border-accent pl-4">
       <p className="kicker">Answer</p>
-      <div className="text-ink">
+      <div className="text-fg">
         <SimpleMarkdown text={turn.content} />
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        {sources.length > 0 ? <span className="text-ink-3">Sources:</span> : null}
+        {sources.length > 0 ? <span className="text-fg-3">Sources:</span> : null}
         {sources.map((call, i) => (
           <span
             key={i}

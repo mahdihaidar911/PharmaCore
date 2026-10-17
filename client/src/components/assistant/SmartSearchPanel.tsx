@@ -76,8 +76,8 @@ export function SmartSearchPanel({ configured }: { configured: boolean }) {
 
       {result && !loading ? (
         <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="space-y-2 border-b border-rule p-4">
-            {result.interpretation ? <p className="text-sm text-ink-2">{result.interpretation}</p> : null}
+          <div className="space-y-2 border-b border-line p-4">
+            {result.interpretation ? <p className="text-sm text-fg-2">{result.interpretation}</p> : null}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="badge badge-neutral capitalize">{result.entity}</span>
               {result.applied_filters.length ? (
@@ -87,10 +87,10 @@ export function SmartSearchPanel({ configured }: { configured: boolean }) {
                   </span>
                 ))
               ) : (
-                <span className="text-xs text-ink-3">No filters applied</span>
+                <span className="text-xs text-fg-3">No filters applied</span>
               )}
             </div>
-            <p className="text-xs text-ink-3">
+            <p className="text-xs text-fg-3">
               {result.truncated ? `Showing first ${result.rows.length} of ${result.total.toLocaleString()} results.` : `${result.total.toLocaleString()} result(s).`}{" "}
               Check the filters above to confirm the request was understood correctly.
             </p>

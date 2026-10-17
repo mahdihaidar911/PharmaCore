@@ -123,8 +123,8 @@ export default function BackupPage() {
                   </Status>
                 }
               />
-              <p className="text-dense text-ink-2">
-                Last backup <strong className="text-ink">{formatAge(status.age_hours)}</strong> · Automatic backups{" "}
+              <p className="text-dense text-fg-2">
+                Last backup <strong className="text-fg">{formatAge(status.age_hours)}</strong> · Automatic backups{" "}
                 {status.settings.auto_enabled ? `every ${status.interval_hours} h, keeping ${status.settings.keep_auto}` : "off"}
               </p>
               {status.warnings.map((w) => (
@@ -138,8 +138,8 @@ export default function BackupPage() {
           {canConfigure ? (
             <form onSubmit={saveSettings} className="space-y-4">
               <SectionHead title="Automatic backups" />
-              <label className="flex items-center gap-2 text-sm text-ink-2">
-                <input type="checkbox" className="h-4 w-4 accent-forest-700" checked={form.auto_enabled} onChange={(e) => setForm({ ...form, auto_enabled: e.target.checked })} />
+              <label className="flex items-center gap-2 text-sm text-fg-2">
+                <input type="checkbox" className="h-4 w-4" checked={form.auto_enabled} onChange={(e) => setForm({ ...form, auto_enabled: e.target.checked })} />
                 Back up automatically once a day while PharmaCore is running
               </label>
               <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
@@ -177,13 +177,13 @@ export default function BackupPage() {
                   {backups.map((backup) => (
                     <tr key={backup.filename}>
                       <td className="w-full max-w-0">
-                        <p className="code truncate text-ink">{backup.filename}</p>
+                        <p className="code truncate text-fg">{backup.filename}</p>
                         <p className="meta sm:hidden">{new Date(backup.created_at).toLocaleString()}</p>
                       </td>
                       <td>
                         <Badge tone={KIND_LABEL[backup.kind].tone}>{KIND_LABEL[backup.kind].label}</Badge>
                       </td>
-                      <td className="hidden whitespace-nowrap font-mono text-dense text-ink-2 sm:table-cell">{new Date(backup.created_at).toLocaleString()}</td>
+                      <td className="hidden whitespace-nowrap font-mono text-dense text-fg-2 sm:table-cell">{new Date(backup.created_at).toLocaleString()}</td>
                       <td className="num hidden whitespace-nowrap md:table-cell">{formatSize(backup.size_bytes)}</td>
                       {can("backup.restore") ? (
                         <td>

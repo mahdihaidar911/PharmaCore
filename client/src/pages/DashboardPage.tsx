@@ -12,7 +12,7 @@ import { daysUntil, expiryStatus } from "../lib/expiry";
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
 function Strong({ tone, children }: { tone?: "danger" | "caution"; children: ReactNode }) {
-  const color = tone === "danger" ? "text-danger" : tone === "caution" ? "text-caution" : "text-ink";
+  const color = tone === "danger" ? "text-danger" : tone === "caution" ? "text-caution" : "text-fg";
   return <strong className={`font-semibold ${color}`}>{children}</strong>;
 }
 
@@ -22,7 +22,7 @@ function Standfirst({ report }: { report: DashboardReport }) {
   const outOfStock = report.outOfStockTotal;
   const low = report.lowStockTotal;
   return (
-    <p className="max-w-4xl font-serif text-xl leading-relaxed text-ink-2">
+    <p className="max-w-4xl font-serif text-xl leading-relaxed text-fg-2">
       {s ? (
         s.sale_count === 0 ? (
           <>No sales yet today. </>
@@ -121,7 +121,7 @@ export default function DashboardPage() {
                   count={report.expiredTotal + report.nearExpiryTotal}
                   action={
                     can("inventory.view") ? (
-                      <Link to="/inventory" className="text-dense font-medium text-forest-700 hover:underline">
+                      <Link to="/inventory" className="text-dense font-medium text-accent-text hover:underline">
                         Inventory
                       </Link>
                     ) : null
@@ -147,8 +147,8 @@ export default function DashboardPage() {
                             <td className="w-full max-w-0 !pl-0">
                               <ProductName name={b.product_name} />
                             </td>
-                            <td className="num text-ink-2">{b.qty} u</td>
-                            <td className="num code text-ink-2">{b.expiry_date}</td>
+                            <td className="num text-fg-2">{b.qty} u</td>
+                            <td className="num code text-fg-2">{b.expiry_date}</td>
                             <td className="!pr-0 text-right">
                               <Status tone={st.tone}>{st.label}</Status>
                             </td>
@@ -167,7 +167,7 @@ export default function DashboardPage() {
                   count={report.lowStockTotal}
                   action={
                     can("inventory.receive") ? (
-                      <Link to="/receive" className="text-dense font-medium text-forest-700 hover:underline">
+                      <Link to="/receive" className="text-dense font-medium text-accent-text hover:underline">
                         Receive stock
                       </Link>
                     ) : null
@@ -194,7 +194,7 @@ export default function DashboardPage() {
                               <Status tone="danger">Out of stock</Status>
                             ) : (
                               <Status tone="caution" icon="alert">
-                                {p.total_qty} left <span className="font-normal text-ink-3">of min {p.min_stock}</span>
+                                {p.total_qty} left <span className="font-normal text-fg-3">of min {p.min_stock}</span>
                               </Status>
                             )}
                           </td>

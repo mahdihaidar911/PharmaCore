@@ -38,26 +38,27 @@ export function Status({ tone, icon, children, className = "" }: { tone: StatusT
 
 export function Spinner({ label = "Loading…", className = "" }: { label?: string; className?: string }) {
   return (
-    <div className={`flex items-center gap-2 text-sm text-ink-3 ${className}`.trim()} role="status">
-      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-rule border-t-ink-2 motion-reduce:animate-none" aria-hidden />
+    <div className={`flex items-center gap-2 text-sm text-fg-3 ${className}`.trim()} role="status">
+      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-fg-2 motion-reduce:animate-none" aria-hidden />
       {label}
     </div>
   );
 }
 
-export function EmptyState({ title, description, action }: { title: string; description?: ReactNode; action?: ReactNode }) {
+export function EmptyState({ title, description, action, icon }: { title: string; description?: ReactNode; action?: ReactNode; icon?: IconName }) {
   return (
     <div className="px-4 py-8">
-      <p className="font-medium text-ink-2">{title}</p>
-      {description ? <p className="mt-1 max-w-md text-dense text-ink-3">{description}</p> : null}
+      {icon ? <Icon name={icon} className="mb-2 h-5 w-5 text-fg-4" /> : null}
+      <p className="font-medium text-fg-2">{title}</p>
+      {description ? <p className="mt-1 max-w-md text-dense text-fg-3">{description}</p> : null}
       {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
 }
 
 /**
- * A headline number set like a ledger entry: kicker label over a ruled line, serif figure, plain hint.
- * Laid out in rows by the page (see FigureRow); never boxed as a card.
+ * One readout in an instrument strip: label, figure, hint. Only meaningful inside FigureRow, which supplies
+ * the shared surface and hairline dividers — figures are never boxed as separate cards.
  */
 export function StatCard({
   label,
@@ -70,23 +71,27 @@ export function StatCard({
   hint?: ReactNode;
   tone?: "neutral" | "warning" | "danger" | "success";
 }) {
-  const valueColor = { neutral: "text-ink", success: "text-forest-800", warning: "text-caution", danger: "text-danger" }[tone];
+  const valueColor = { neutral: "text-fg", success: "text-accent-text", warning: "text-caution", danger: "text-danger" }[tone];
   const flag = tone === "warning" || tone === "danger" ? <Icon name="alert" className={`h-3.5 w-3.5 ${valueColor}`} /> : null;
   return (
-    <div className="min-w-0 border-t-2 border-ink pt-2">
+    <div className="min-w-0 bg-surface px-4 py-3">
       <p className="kicker flex items-center gap-1.5">
         {label}
         {flag}
       </p>
-      <p className={`mt-1.5 font-serif text-[1.75rem] leading-none font-semibold ${valueColor}`}>{value}</p>
-      {hint ? <p className="mt-1.5 text-xs text-ink-3">{hint}</p> : null}
+      <p className={`mt-1.5 text-figure font-semibold tracking-[-0.02em] ${valueColor}`}>{value}</p>
+      {hint ? <p className="mt-1 text-xs text-fg-3">{hint}</p> : null}
     </div>
   );
 }
 
-/** Lays StatCards out as a ruled row of figures. */
+/** An instrument strip: StatCards share one surface, separated by hairlines. */
 export function FigureRow({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-4 ${className}`.trim()}>{children}</div>;
+  return (
+    <div className={`grid gap-px overflow-hidden rounded-md border border-line bg-line shadow-raised sm:grid-cols-2 xl:grid-cols-4 ${className}`.trim()}>
+      {children}
+    </div>
+  );
 }
 
 export function Field({ label, hint, error, children }: { label: string; hint?: ReactNode; error?: string | null; children: ReactNode }) {
@@ -122,7 +127,7 @@ export function SearchInput({
 }) {
   return (
     <div className={`relative ${className}`.trim()}>
-      <Icon name="search" className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-ink-3" />
+      <Icon name="search" className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-fg-3" />
       <input
         type="search"
         aria-label={label}
@@ -197,23 +202,23 @@ export function Modal({
   const width = { sm: "sm:max-w-sm", md: "sm:max-w-lg", lg: "sm:max-w-3xl" }[size];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-0 sm:items-center sm:p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-0 sm:items-center sm:p-4" onMouseDown={onClose}>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`flex max-h-[90vh] w-full ${width} flex-col overflow-hidden rounded-t-md border border-rule-strong bg-paper-0 shadow-overlay sm:rounded-md`}
+        className={`flex max-h-[90vh] w-full ${width} animate-enter flex-col overflow-hidden rounded-t-lg border border-line-strong bg-surface text-fg shadow-overlay sm:rounded-lg`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-rule px-5 py-3">
-          <h2 className="font-serif text-lg font-semibold text-ink">{title}</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+          <h2 className="text-base font-semibold tracking-[-0.01em] text-fg">{title}</h2>
           <button type="button" className="btn btn-ghost btn-sm btn-icon -mr-2" onClick={onClose} aria-label="Close">
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
-        {footer ? <div className="flex justify-end gap-2 border-t border-rule bg-paper px-5 py-3">{footer}</div> : null}
+        {footer ? <div className="flex justify-end gap-2 border-t border-line bg-surface-2 px-5 py-3">{footer}</div> : null}
       </div>
     </div>
   );
@@ -261,7 +266,7 @@ export function ConfirmDialog({
         </>
       }
     >
-      <div className="text-sm text-ink-2">{message}</div>
+      <div className="text-sm text-fg-2">{message}</div>
     </Modal>
   );
 }
@@ -269,9 +274,12 @@ export function ConfirmDialog({
 export function NoAccess({ what = "this page" }: { what?: string }) {
   return (
     <div className="flex h-full items-start justify-center pt-16">
-      <div className="max-w-md border-t-2 border-ink pt-3">
-        <p className="font-serif text-xl font-semibold text-ink">No access</p>
-        <p className="mt-2 text-sm text-ink-2">
+      <div className="sheet max-w-md p-6">
+        <p className="flex items-center gap-2 text-lg font-semibold text-fg">
+          <Icon name="alert" className="h-5 w-5 text-caution" />
+          No access
+        </p>
+        <p className="mt-2 text-sm text-fg-2">
           Your role does not have permission to open {what}. Ask the pharmacy owner if you need access.
         </p>
       </div>

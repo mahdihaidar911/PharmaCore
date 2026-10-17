@@ -42,16 +42,16 @@ export default function AccountPage() {
           <section>
             <SectionHead title="Signed in as" />
             <dl className="mt-1 text-sm">
-              <div className="flex justify-between gap-4 border-b border-rule py-2.5">
-                <dt className="text-ink-3">Username</dt>
+              <div className="flex justify-between gap-4 border-b border-line py-2.5">
+                <dt className="text-fg-3">Username</dt>
                 <dd className="font-mono font-medium">{user?.username}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b border-rule py-2.5">
-                <dt className="text-ink-3">Name</dt>
+              <div className="flex justify-between gap-4 border-b border-line py-2.5">
+                <dt className="text-fg-3">Name</dt>
                 <dd className="font-medium">{user?.full_name || "—"}</dd>
               </div>
-              <div className="flex justify-between gap-4 border-b border-rule py-2.5">
-                <dt className="text-ink-3">Role</dt>
+              <div className="flex justify-between gap-4 border-b border-line py-2.5">
+                <dt className="text-fg-3">Role</dt>
                 <dd>
                   <Badge tone="brand">{user?.role}</Badge>
                 </dd>

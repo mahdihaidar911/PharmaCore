@@ -81,8 +81,8 @@ export default function UsersPage() {
                   {users.map((u) => (
                     <tr key={u.id} className={u.is_active ? "" : "opacity-60"}>
                       <td>
-                        <p className="font-medium text-ink">{u.full_name || u.username}</p>
-                        <p className="text-xs text-ink-3">
+                        <p className="font-medium text-fg">{u.full_name || u.username}</p>
+                        <p className="text-xs text-fg-3">
                           @{u.username}
                           {u.id === me?.id ? " · you" : ""}
                         </p>
@@ -91,7 +91,7 @@ export default function UsersPage() {
                         <Badge tone={u.role === "owner" ? "brand" : "neutral"}>{ROLE_INFO[u.role]?.label ?? u.role}</Badge>
                       </td>
                       <td>{u.is_active ? <Status tone="ok">Active</Status> : <Status tone="muted" icon="close">Disabled</Status>}</td>
-                      <td className="hidden font-mono text-dense text-ink-3 md:table-cell">
+                      <td className="hidden font-mono text-dense text-fg-3 md:table-cell">
                         {u.last_login_at ? parseServerDate(u.last_login_at).toLocaleString() : "Never"}
                       </td>
                       <td>
@@ -213,11 +213,11 @@ function UserFormModal({ editing, onClose, onSaved }: { editing: NonNullable<Edi
               <legend className="field-label">Role</legend>
               <div className="space-y-2">
                 {(Object.keys(ROLE_INFO) as Role[]).map((r) => (
-                  <label key={r} className={`flex cursor-pointer gap-3 rounded-sm border p-3 ${role === r ? "border-ink bg-paper" : "border-rule hover:bg-paper"}`}>
-                    <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} className="mt-1 accent-forest-700" />
+                  <label key={r} className={`flex cursor-pointer gap-3 rounded-sm border p-3 ${role === r ? "border-fg bg-canvas" : "border-line hover:bg-canvas"}`}>
+                    <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} className="mt-1" />
                     <span>
                       <span className="block text-sm font-medium">{ROLE_INFO[r].label}</span>
-                      <span className="block text-xs text-ink-3">{ROLE_INFO[r].description}</span>
+                      <span className="block text-xs text-fg-3">{ROLE_INFO[r].description}</span>
                     </span>
                   </label>
                 ))}

@@ -92,15 +92,15 @@ function Breakdown({ shift, totals }: { shift: CashShift; totals: ShiftTotals })
 }
 
 function MovementsList({ movements }: { movements: CashMovement[] }) {
-  if (movements.length === 0) return <p className="text-sm text-ink-3">No pay-ins or pay-outs.</p>;
+  if (movements.length === 0) return <p className="text-sm text-fg-3">No pay-ins or pay-outs.</p>;
   return (
-    <ul className="divide-y divide-rule text-sm">
+    <ul className="divide-y divide-line text-sm">
       {movements.map((m) => (
         <li key={m.id} className="flex items-start justify-between gap-3 py-2">
           <div>
             <Badge tone={m.type === "pay_in" ? "success" : "warning"}>{m.type === "pay_in" ? "Pay-in" : "Pay-out"}</Badge>{" "}
-            <span className="text-ink">{m.reason}</span>
-            <p className="text-xs text-ink-3">
+            <span className="text-fg">{m.reason}</span>
+            <p className="text-xs text-fg-3">
               {fmtTime(m.created_at)} · {m.username}
             </p>
           </div>
@@ -255,7 +255,7 @@ export default function CashDrawerPage() {
           {current && !shift ? (
             <form onSubmit={handleOpen} className="max-w-2xl space-y-4">
               <SectionHead title="Open the drawer" action={<Status tone="caution" icon="alert">Drawer closed</Status>} />
-              <p className="text-dense text-ink-2">Count the starting float in the drawer and open a shift. Sales and refunds are blocked until a shift is open.</p>
+              <p className="text-dense text-fg-2">Count the starting float in the drawer and open a shift. Sales and refunds are blocked until a shift is open.</p>
               <AmountInputs usd={openUsd} lbp={openLbp} onUsd={setOpenUsd} onLbp={setOpenLbp} usdLabel="Opening float (USD)" lbpLabel="Opening float (LBP)" />
               <button type="submit" className="btn btn-primary btn-lg" disabled={busy || !validAmount(openUsd) || !validAmount(openLbp)}>
                 {busy ? "Opening…" : "Open shift"}
@@ -265,15 +265,15 @@ export default function CashDrawerPage() {
 
           {shift ? (
             <>
-              <div className="flex flex-col gap-3 border-t-2 border-ink pt-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-3 border-t-2 border-fg pt-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-baseline gap-3">
-                    <h2 className="font-serif text-xl font-semibold text-ink">
+                    <h2 className="font-serif text-xl font-semibold text-fg">
                       Shift <span className="font-mono text-lg">#{shift.id}</span>
                     </h2>
                     <Status tone="ok">Open</Status>
                   </div>
-                  <p className="mt-1 text-dense text-ink-3">
+                  <p className="mt-1 text-dense text-fg-3">
                     Opened {fmtTime(shift.opened_at)} by {shift.opened_by_name} · Float {formatUsd(shift.opening_usd)} + {formatLbp(shift.opening_lbp)}
                   </p>
                 </div>
@@ -348,11 +348,11 @@ export default function CashDrawerPage() {
                     </thead>
                     <tbody>
                       {history.map((h) => (
-                        <tr key={h.id} className="cursor-pointer hover:bg-paper" onClick={() => showDetail(h.id)}>
+                        <tr key={h.id} className="cursor-pointer hover:bg-canvas" onClick={() => showDetail(h.id)}>
                           <td>
                             <button
                               type="button"
-                              className="font-mono font-medium text-forest-700 underline-offset-2 hover:underline"
+                              className="font-mono font-medium text-accent-text underline-offset-2 hover:underline"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void showDetail(h.id);
@@ -363,20 +363,20 @@ export default function CashDrawerPage() {
                           </td>
                           <td>
                             {fmtTime(h.opened_at)}
-                            <p className="text-xs text-ink-3">{h.opened_by_name}</p>
+                            <p className="text-xs text-fg-3">{h.opened_by_name}</p>
                           </td>
                           <td>
                             {h.status === "open" ? <Status tone="ok">Open</Status> : fmtTime(h.closed_at)}
-                            {h.closed_by_name ? <p className="text-xs text-ink-3">{h.closed_by_name}</p> : null}
+                            {h.closed_by_name ? <p className="text-xs text-fg-3">{h.closed_by_name}</p> : null}
                           </td>
                           <td className="text-right tabular-nums">{h.totals.sale_count}</td>
                           <td className="text-right tabular-nums">
                             {formatUsd(h.totals.expected_usd)}
-                            <p className="text-xs text-ink-3">{formatLbp(h.totals.expected_lbp)}</p>
+                            <p className="text-xs text-fg-3">{formatLbp(h.totals.expected_lbp)}</p>
                           </td>
                           <td className="text-right tabular-nums">
                             {h.counted_usd === null ? "—" : formatUsd(h.counted_usd)}
-                            {h.counted_lbp === null ? null : <p className="text-xs text-ink-3">{formatLbp(h.counted_lbp)}</p>}
+                            {h.counted_lbp === null ? null : <p className="text-xs text-fg-3">{formatLbp(h.counted_lbp)}</p>}
                           </td>
                           <td className="text-right">
                             {h.variance_usd === null || h.variance_lbp === null ? (
@@ -389,7 +389,7 @@ export default function CashDrawerPage() {
                                   <Status tone="caution" icon="alert">
                                     {signed(h.variance_usd, formatUsd)}
                                   </Status>
-                                  <span className="text-xs text-ink-3">{signed(h.variance_lbp, formatLbp)}</span>
+                                  <span className="text-xs text-fg-3">{signed(h.variance_lbp, formatLbp)}</span>
                                 </span>
                               )
                             )}
@@ -453,7 +453,7 @@ export default function CashDrawerPage() {
         }
       >
         <form id="close-shift-form" onSubmit={handleClose} className="space-y-4">
-          <p className="text-sm text-ink-2">Count all cash in the drawer, including the float, and enter the totals per currency.</p>
+          <p className="text-sm text-fg-2">Count all cash in the drawer, including the float, and enter the totals per currency.</p>
           <AmountInputs usd={countUsd} lbp={countLbp} onUsd={setCountUsd} onLbp={setCountLbp} usdLabel="Counted USD" lbpLabel="Counted LBP" />
           <Field label="Notes (optional)">
             <input className="input" maxLength={500} value={closeNotes} onChange={(e) => setCloseNotes(e.target.value)} />
@@ -491,7 +491,7 @@ export default function CashDrawerPage() {
             <Breakdown shift={closeResult.shift} totals={closeResult.totals} />
           </div>
         ) : (
-          <p className="text-sm text-ink-2">Your count was recorded. A pharmacist or the owner will review the shift.</p>
+          <p className="text-sm text-fg-2">Your count was recorded. A pharmacist or the owner will review the shift.</p>
         )}
       </Modal>
 
@@ -510,7 +510,7 @@ export default function CashDrawerPage() {
       >
         {detail ? (
           <div className="space-y-4">
-            <p className="text-sm text-ink-2">
+            <p className="text-sm text-fg-2">
               {fmtTime(detail.shift.opened_at)} ({detail.shift.opened_by_name}) → {detail.shift.status === "open" ? "still open" : `${fmtTime(detail.shift.closed_at)} (${detail.shift.closed_by_name})`}
               <br />
               {detail.totals.sale_count} sales ({detail.totals.card_sale_count} by card) · net {formatUsd(detail.totals.net_sales_usd)}
@@ -525,10 +525,10 @@ export default function CashDrawerPage() {
               </p>
             ) : null}
             <div>
-              <h4 className="mb-1 font-medium text-ink">Pay-ins and pay-outs</h4>
+              <h4 className="mb-1 font-medium text-fg">Pay-ins and pay-outs</h4>
               <MovementsList movements={detail.movements} />
             </div>
-            {detail.shift.notes ? <p className="text-sm text-ink-2">Notes: {detail.shift.notes}</p> : null}
+            {detail.shift.notes ? <p className="text-sm text-fg-2">Notes: {detail.shift.notes}</p> : null}
           </div>
         ) : null}
       </Modal>

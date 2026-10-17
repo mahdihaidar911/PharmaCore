@@ -16,9 +16,9 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, di
   const to = Math.min(page * pageSize, total);
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-rule px-4 py-2 text-dense">
-      <p className="text-ink-2">
-        <span className="font-medium text-ink">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2 text-dense">
+      <p className="text-fg-2">
+        <span className="font-medium text-fg">
           {from.toLocaleString()}–{to.toLocaleString()}
         </span>{" "}
         of {total.toLocaleString()}

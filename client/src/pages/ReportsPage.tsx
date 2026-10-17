@@ -61,8 +61,8 @@ function Question({ id, title, count, action, children, className = "" }: { id: 
 function Bar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.max(1.5, (value / max) * 100) : 0;
   return (
-    <span className="block h-2 w-full bg-paper-2" aria-hidden>
-      <span className="block h-2 bg-forest-600" style={{ width: `${pct}%` }} />
+    <span className="block h-2 w-full bg-surface-2" aria-hidden>
+      <span className="block h-2 bg-accent" style={{ width: `${pct}%` }} />
     </span>
   );
 }
@@ -125,7 +125,7 @@ export default function ReportsPage() {
             })}
           </div>
           <input type="date" className="input min-h-8 w-auto py-1 text-dense" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="From" />
-          <span className="text-ink-3">–</span>
+          <span className="text-fg-3">–</span>
           <input type="date" className="input min-h-8 w-auto py-1 text-dense" value={to} min={from} onChange={(e) => setTo(e.target.value)} aria-label="To" />
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.print()}>
             <Icon name="printer" className="h-4 w-4" /> Print
@@ -179,7 +179,7 @@ export default function ReportsPage() {
                             <td>
                               <span className="flex items-center gap-2">
                                 <Bar value={m.net_revenue_usd} max={methodTotal} />
-                                <span className="w-10 text-right text-xs text-ink-2">{methodTotal > 0 ? Math.round((m.net_revenue_usd / methodTotal) * 100) : 0}%</span>
+                                <span className="w-10 text-right text-xs text-fg-2">{methodTotal > 0 ? Math.round((m.net_revenue_usd / methodTotal) * 100) : 0}%</span>
                               </span>
                             </td>
                             <td className="num !pr-0 font-medium">{formatUsd(m.net_revenue_usd)}</td>
@@ -214,9 +214,9 @@ export default function ReportsPage() {
                           <td className="code !pl-0 whitespace-nowrap">
                             {new Date(`${d.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short" })} {d.date.slice(5)}
                           </td>
-                          <td className={`num ${d.sale_count ? "" : "text-ink-4"}`}>{d.sale_count}</td>
+                          <td className={`num ${d.sale_count ? "" : "text-fg-4"}`}>{d.sale_count}</td>
                           <td>{d.net_revenue_usd > 0 ? <Bar value={d.net_revenue_usd} max={maxDaily} /> : null}</td>
-                          <td className={`num !pr-0 ${d.net_revenue_usd ? "font-medium" : "text-ink-4"}`}>{formatUsd(d.net_revenue_usd)}</td>
+                          <td className={`num !pr-0 ${d.net_revenue_usd ? "font-medium" : "text-fg-4"}`}>{formatUsd(d.net_revenue_usd)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -264,8 +264,8 @@ export default function ReportsPage() {
                                 <ProductName name={p.name} inline className="block truncate" />
                               </td>
                               <td className="num font-medium">{p.units_sold}</td>
-                              <td className="num text-ink-2">{perDay.toFixed(perDay < 10 ? 1 : 0)}</td>
-                              <td className={`num hidden md:table-cell ${p.units_returned ? "" : "text-ink-4"}`}>{p.units_returned}</td>
+                              <td className="num text-fg-2">{perDay.toFixed(perDay < 10 ? 1 : 0)}</td>
+                              <td className={`num hidden md:table-cell ${p.units_returned ? "" : "text-fg-4"}`}>{p.units_returned}</td>
                               <td className="num">{formatUsd(p.net_revenue_usd)}</td>
                               <td className="num">{p.current_stock}</td>
                               <td className="num !pr-0">
@@ -370,7 +370,7 @@ export default function ReportsPage() {
                                 <ProductName name={p.name} inline className="block truncate" />
                               </td>
                               <td className="num">{p.total_qty === 0 ? <Status tone="danger">0</Status> : p.total_qty}</td>
-                              <td className="num !pr-0 text-ink-2">{p.min_stock}</td>
+                              <td className="num !pr-0 text-fg-2">{p.min_stock}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -410,7 +410,7 @@ export default function ReportsPage() {
                                   <ProductName name={b.product_name} inline className="block truncate" />
                                 </td>
                                 <td className="num">{b.qty}</td>
-                                <td className="code whitespace-nowrap text-ink-2">{b.expiry_date}</td>
+                                <td className="code whitespace-nowrap text-fg-2">{b.expiry_date}</td>
                                 <td className="!pr-0 text-right">
                                   <Status tone={st.tone} className="text-xs">
                                     {st.label}
@@ -465,16 +465,16 @@ export default function ReportsPage() {
                       <tbody>
                         {data.movements.movements.map((m) => (
                           <tr key={m.id}>
-                            <td className="code !pl-0 whitespace-nowrap text-ink-2">{parseServerDate(m.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                            <td className="code !pl-0 whitespace-nowrap text-fg-2">{parseServerDate(m.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                             <td>{MOVEMENT_LABEL[m.movement_type] ?? m.movement_type}</td>
                             <td className="w-full max-w-0">
                               <ProductName name={m.product_name} inline className="block truncate" />
                             </td>
-                            <td className={`num font-medium ${m.qty_change < 0 ? "text-ink" : "text-forest-700"}`}>
+                            <td className={`num font-medium ${m.qty_change < 0 ? "text-fg" : "text-accent-text"}`}>
                               {m.qty_change > 0 ? `+${m.qty_change}` : m.qty_change}
                             </td>
-                            <td className="hidden max-w-60 truncate text-ink-2 lg:table-cell">{[m.reason?.replace("_", " "), m.notes].filter(Boolean).join(" — ")}</td>
-                            <td className="!pr-0 text-ink-2">{m.username ?? ""}</td>
+                            <td className="hidden max-w-60 truncate text-fg-2 lg:table-cell">{[m.reason?.replace("_", " "), m.notes].filter(Boolean).join(" — ")}</td>
+                            <td className="!pr-0 text-fg-2">{m.username ?? ""}</td>
                           </tr>
                         ))}
                       </tbody>

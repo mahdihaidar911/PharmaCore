@@ -9,7 +9,7 @@ export default function Receipt({ detail }: ReceiptProps) {
   const html = buildReceiptHtml(detail);
 
   return (
-    <div className="mx-auto max-h-[80vh] max-w-4xl overflow-auto rounded-sm border border-rule-strong bg-paper-0">
+    <div className="mx-auto max-h-[80vh] max-w-4xl overflow-auto rounded-sm border border-line-strong bg-surface">
       <iframe
         title={`Receipt ${detail.sale.id}`}
         srcDoc={html}

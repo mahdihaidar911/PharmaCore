@@ -20,7 +20,7 @@ function FileField({ label, onFile }: { label: string; onFile: (file: File | nul
       <input
         type="file"
         accept=".xls,.xlsx"
-        className="block w-full text-dense text-ink-2 file:mr-3 file:cursor-pointer file:rounded-sm file:border file:border-line-input file:bg-paper-0 file:px-3 file:py-1.5 file:text-dense file:font-medium file:text-ink hover:file:bg-paper-2"
+        className="block w-full text-dense text-fg-2 file:mr-3 file:cursor-pointer file:rounded-sm file:border file:border-line-input file:bg-surface file:px-3 file:py-1.5 file:text-dense file:font-medium file:text-fg hover:file:bg-surface-2"
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
     </label>
@@ -51,10 +51,10 @@ function MophPreview({
   const isCatalog = mode === "catalog";
 
   return (
-    <div className="space-y-3 rounded-md border border-rule-strong bg-paper-0 p-4">
-      <p className="text-dense text-ink-2">
+    <div className="space-y-3 rounded-md border border-line-strong bg-surface p-4">
+      <p className="text-dense text-fg-2">
         <span className="kicker mr-2">Preview</span>
-        <strong className="text-ink">{check.rowsCompared.toLocaleString()}</strong> rows in file
+        <strong className="text-fg">{check.rowsCompared.toLocaleString()}</strong> rows in file
         {isCatalog && (check.marketedCount != null || check.nonMarketedCount != null) ? (
           <>
             {" "}
@@ -75,7 +75,7 @@ function MophPreview({
       {check.skippedUnmapped > 0 ? <p className="meta">{check.skippedUnmapped} rows skipped (missing code, name or price).</p> : null}
 
       {check.sampleChanges.length > 0 ? (
-        <ScrollBox className="max-h-64 rounded-sm border border-rule">
+        <ScrollBox className="max-h-64 rounded-sm border border-line">
           <table className="data-table">
             <thead>
               <tr>
@@ -90,17 +90,17 @@ function MophPreview({
               {check.sampleChanges.map((row) => (
                 <tr key={`${row.type}-${row.moph_code}`}>
                   <td className="font-medium">{row.type === "new" ? "New" : "Price"}</td>
-                  <td className="code text-ink-2">{row.moph_code}</td>
+                  <td className="code text-fg-2">{row.moph_code}</td>
                   <td className="font-medium">{row.name}</td>
                   <td className="num">
                     {row.type === "price_change" && row.previous_official_price_lbp != null && row.official_price_lbp != null ? (
-                      <span className="block text-xs text-ink-3 line-through">{formatLbp(row.previous_official_price_lbp)}</span>
+                      <span className="block text-xs text-fg-3 line-through">{formatLbp(row.previous_official_price_lbp)}</span>
                     ) : null}
                     {row.official_price_lbp != null ? formatLbp(row.official_price_lbp) : "—"}
                   </td>
                   <td className="num">
                     {row.type === "price_change" && row.previous_sale_price_usd != null ? (
-                      <span className="block text-xs text-ink-3 line-through">{formatUsd(row.previous_sale_price_usd)}</span>
+                      <span className="block text-xs text-fg-3 line-through">{formatUsd(row.previous_sale_price_usd)}</span>
                     ) : null}
                     {formatUsd(row.new_sale_price_usd)}
                   </td>
@@ -111,9 +111,9 @@ function MophPreview({
         </ScrollBox>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-3">
-        <label className="flex items-center gap-2 text-dense text-ink-2">
-          <input type="checkbox" className="h-4 w-4 accent-forest-700" checked={applyRetailPrices} onChange={(e) => onApplyRetailPrices(e.target.checked)} />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+        <label className="flex items-center gap-2 text-dense text-fg-2">
+          <input type="checkbox" className="h-4 w-4" checked={applyRetailPrices} onChange={(e) => onApplyRetailPrices(e.target.checked)} />
           Set shelf prices (USD) from the official MoPH LBP price ÷ exchange rate
         </label>
         <button type="button" disabled={!canApply || busy} onClick={onApply} className="btn btn-primary">
@@ -308,7 +308,7 @@ export default function MophPage() {
         <>
           Import the Ministry of Public Health drug lists once, then refresh public prices whenever MoPH publishes a new list. Rate used:{" "}
           <span className="font-mono">{rate.toLocaleString()} LBP/USD</span>.{" "}
-          <a href="https://moph.gov.lb/en/Pages/3/3101/drugs-public-price-list-" target="_blank" rel="noreferrer" className="font-medium text-forest-700 underline">
+          <a href="https://moph.gov.lb/en/Pages/3/3101/drugs-public-price-list-" target="_blank" rel="noreferrer" className="font-medium text-accent-text underline">
             MoPH public price list
           </a>
         </>
@@ -316,7 +316,7 @@ export default function MophPage() {
       actions={
         status?.moph_last_import_at ? (
           <p className="meta">
-            Last import <span className="code text-ink-2">{new Date(status.moph_last_import_at).toLocaleString()}</span>
+            Last import <span className="code text-fg-2">{new Date(status.moph_last_import_at).toLocaleString()}</span>
             {status.moph_last_import_source ? ` · ${status.moph_last_import_source}` : null}
           </p>
         ) : null
@@ -332,13 +332,13 @@ export default function MophPage() {
 
           <section className="space-y-3">
             <SectionHead title="1 · Price list update" count="repeat when MoPH publishes" />
-            <p className="text-dense text-ink-2">
+            <p className="text-dense text-fg-2">
               Uses <strong>WebMarketed</strong> only. Updates prices of products already in your catalogue, matched by MoPH code. Never adds products.
             </p>
             <button type="button" disabled={anyBusy || !serverOk} onClick={runPriceCheck} className="btn btn-primary btn-lg">
               {priceStep === "checking" ? "Checking price list…" : "Check public price list"}
             </button>
-            {priceMessage && priceStep !== "done" ? <p className="text-dense text-ink-2">{priceMessage}</p> : null}
+            {priceMessage && priceStep !== "done" ? <p className="text-dense text-fg-2">{priceMessage}</p> : null}
             {priceCheck ? (
               <MophPreview
                 check={priceCheck}
@@ -373,7 +373,7 @@ export default function MophPage() {
 
           <section className="space-y-3">
             <SectionHead title="2 · National catalogue" count="one-time import" />
-            <p className="text-dense text-ink-2">
+            <p className="text-dense text-fg-2">
               Merges <strong>WebMarketed</strong> (codes and public prices), <strong>WebNonMarketed</strong> (codes, no price) and the{" "}
               <strong>primary registered</strong> list. Re-import only when MoPH adds many new drugs.
             </p>
@@ -390,7 +390,7 @@ export default function MophPage() {
                 {catStep === "checking" ? "Downloading…" : "Download from MoPH instead"}
               </button>
             </div>
-            {catMessage && catStep !== "done" ? <p className="text-dense text-ink-2">{catMessage}</p> : null}
+            {catMessage && catStep !== "done" ? <p className="text-dense text-fg-2">{catMessage}</p> : null}
             {catCheck ? (
               <MophPreview
                 check={catCheck}

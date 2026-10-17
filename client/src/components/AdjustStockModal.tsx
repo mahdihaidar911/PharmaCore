@@ -69,9 +69,9 @@ export function AdjustStockModal({ batch, onClose, onDone }: { batch: StockBatch
       }
     >
       <form id="adjust-form" onSubmit={submit} className="space-y-4">
-        <div className="border-l-2 border-ink bg-paper py-2 pr-3 pl-3 text-sm">
+        <div className="border-l-2 border-fg bg-canvas py-2 pr-3 pl-3 text-sm">
           <ProductName name={batch.product_name} />
-          <p className="mt-0.5 text-dense text-ink-3">
+          <p className="mt-0.5 text-dense text-fg-3">
             Batch <span className="code">#{batch.id}</span> · expires <span className="code">{batch.expiry_date}</span> · {batch.qty} in stock
           </p>
         </div>
@@ -103,7 +103,7 @@ export function AdjustStockModal({ batch, onClose, onDone }: { batch: StockBatch
           <textarea className="input min-h-20" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} />
         </Field>
 
-        <p className="text-xs text-ink-3">The adjustment is recorded in stock movements with your name and cannot be deleted.</p>
+        <p className="text-xs text-fg-3">The adjustment is recorded in stock movements with your name and cannot be deleted.</p>
         {error ? <Alert tone="error">{error}</Alert> : null}
       </form>
     </Modal>

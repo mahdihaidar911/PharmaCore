@@ -70,10 +70,10 @@ export default function InventoryPage() {
       title="Inventory"
       description="Stock on hand, batch by batch. The till always sells the earliest-expiring sellable batch first."
       actions={
-        <p className="text-dense text-ink-2">
-          <span className="font-medium text-ink">{summary.total_qty.toLocaleString()}</span> units ·{" "}
-          <span className="font-medium text-ink">{summary.product_count.toLocaleString()}</span> products ·{" "}
-          <span className="font-medium text-ink">{summary.batch_count.toLocaleString()}</span> batches
+        <p className="text-dense text-fg-2">
+          <span className="font-medium text-fg">{summary.total_qty.toLocaleString()}</span> units ·{" "}
+          <span className="font-medium text-fg">{summary.product_count.toLocaleString()}</span> products ·{" "}
+          <span className="font-medium text-fg">{summary.batch_count.toLocaleString()}</span> batches
         </p>
       }
     >
@@ -107,7 +107,7 @@ export default function InventoryPage() {
             </button>
           ))}
         </div>
-        <label className="ml-auto flex items-center gap-2 text-dense text-ink-2">
+        <label className="ml-auto flex items-center gap-2 text-dense text-fg-2">
           Sort
           <select className="input min-h-8 w-auto py-1 text-dense" value={sort} onChange={(e) => (setSort(e.target.value as BatchSort), setPage(1))}>
             {SORTS.map((s) => (
@@ -149,17 +149,17 @@ export default function InventoryPage() {
                     <td className="w-full max-w-0 min-w-56">
                       <ProductName name={batch.product_name} />
                     </td>
-                    <td className="code hidden text-ink-2 md:table-cell">{batch.moph_code ?? "—"}</td>
-                    <td className="code hidden text-ink-2 lg:table-cell">{batch.barcode ?? "—"}</td>
+                    <td className="code hidden text-fg-2 md:table-cell">{batch.moph_code ?? "—"}</td>
+                    <td className="code hidden text-fg-2 lg:table-cell">{batch.barcode ?? "—"}</td>
                     <td className="num font-medium">{batch.qty}</td>
                     <td className="whitespace-nowrap">
-                      <span className="code mr-2 text-ink">{batch.expiry_date}</span>
+                      <span className="code mr-2 text-fg">{batch.expiry_date}</span>
                       <Status tone={st.tone} icon={st.tone === "muted" ? null : undefined} className="text-xs">
                         {st.label}
                       </Status>
                     </td>
                     <td className="num hidden sm:table-cell">{formatUsd(batch.sale_price_usd)}</td>
-                    <td className="code hidden whitespace-nowrap text-ink-3 lg:table-cell">{parseServerDate(batch.received_at).toLocaleDateString("en-CA")}</td>
+                    <td className="code hidden whitespace-nowrap text-fg-3 lg:table-cell">{parseServerDate(batch.received_at).toLocaleDateString("en-CA")}</td>
                     {canAdjust ? (
                       <td className="text-right">
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdjusting(batch)}>

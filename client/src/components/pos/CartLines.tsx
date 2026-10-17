@@ -3,7 +3,15 @@ import { Icon } from "../icons";
 import { ProductName } from "../ProductName";
 import { Status } from "../ui";
 
-/** The current sale as a numbered ledger. The most recently added line carries the lime marker. */
+const SHORTCUTS: [string[], string][] = [
+  [["Scan"], "a barcode — the line is added at once"],
+  [["Type", "↑", "↓", "Enter"], "search by name, choose, add"],
+  [["F4"], "hold this sale · F3 for held sales"],
+  [["F7", "F8"], "customer pays the exact total in USD / LBP"],
+  [["Ctrl", "↵"], "complete the sale and print"],
+];
+
+/** The current sale. The most recently added line carries the emerald edge. */
 export function CartLines({
   cart,
   lastAddedId,
@@ -17,12 +25,23 @@ export function CartLines({
 }) {
   if (cart.length === 0) {
     return (
-      <div className="px-4 py-10">
-        <p className="font-serif text-lg font-semibold text-ink-2">No items yet</p>
-        <p className="mt-1 max-w-sm text-dense text-ink-3">
-          Scan a barcode, or type part of a product name and press <span className="kbd">Enter</span>. Use{" "}
-          <span className="kbd">↑</span> <span className="kbd">↓</span> to choose between matches.
-        </p>
+      <div className="flex h-full flex-col justify-center px-6 py-10">
+        <p className="text-lg font-semibold tracking-[-0.01em] text-fg">Ready for the next customer</p>
+        <p className="mt-1 text-dense text-fg-3">The till works from the keyboard and the scanner.</p>
+        <dl className="mt-5 grid max-w-lg gap-2.5">
+          {SHORTCUTS.map(([keys, text]) => (
+            <div key={text} className="grid grid-cols-[9.5rem_1fr] items-center gap-4 text-dense">
+              <dt className="flex flex-wrap justify-end gap-1">
+                {keys.map((k) => (
+                  <span key={k} className="kbd h-6 min-w-6 px-1.5 text-xs">
+                    {k}
+                  </span>
+                ))}
+              </dt>
+              <dd className="text-fg-2">{text}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
     );
   }
@@ -46,10 +65,14 @@ export function CartLines({
           const overStock = item.stock !== undefined && item.qty > item.stock;
           const marked = item.product_id === lastAddedId;
           return (
-            <tr key={item.product_id} className={marked ? "[&>td]:bg-lime-200/70" : ""}>
-              <td className="code hidden text-ink-3 @md:table-cell">{String(i + 1).padStart(2, "0")}</td>
-              <td className="w-full max-w-0">
+            <tr key={item.product_id} className={marked ? "is-selected [&>td]:animate-flash" : ""}>
+              <td className="code hidden text-fg-3 @md:table-cell">{String(i + 1).padStart(2, "0")}</td>
+              <td className="w-full max-w-0 py-2.5">
                 <ProductName name={item.name} />
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-fg-3">
+                  <span className="code">{item.barcode ?? "no barcode"}</span>
+                  {item.stock !== undefined && !overStock ? <span>· {item.stock} in stock</span> : null}
+                </p>
                 {overStock ? (
                   <Status tone="caution" icon="alert" className="mt-0.5 text-xs">
                     Only {item.stock} in stock
@@ -57,10 +80,10 @@ export function CartLines({
                 ) : null}
               </td>
               <td>
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center overflow-hidden rounded-sm border border-line-input/70 bg-surface">
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm btn-icon h-8 min-h-8 w-8 rounded-r-none"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg"
                     aria-label={`One less ${item.name}`}
                     onClick={() => onQty(item.product_id, item.qty - 1)}
                   >
@@ -71,7 +94,7 @@ export function CartLines({
                     min={1}
                     inputMode="numeric"
                     aria-label={`Quantity of ${item.name}`}
-                    className="h-8 w-12 border-y border-line-input bg-paper-0 text-center text-sm font-medium text-ink focus:border-ink focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                    className="h-8 w-11 border-x border-line bg-transparent text-center text-sm font-semibold text-fg focus:bg-accent-soft focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                     value={item.qty}
                     onChange={(e) => {
                       const next = Math.floor(Number(e.target.value));
@@ -81,7 +104,7 @@ export function CartLines({
                   />
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm btn-icon h-8 min-h-8 w-8 rounded-l-none"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg"
                     aria-label={`One more ${item.name}`}
                     onClick={() => onQty(item.product_id, item.qty + 1)}
                   >
@@ -89,10 +112,10 @@ export function CartLines({
                   </button>
                 </div>
               </td>
-              <td className="num hidden text-ink-2 @xl:table-cell">{formatUsd(item.unit_price_usd)}</td>
-              <td className="num font-medium text-ink">{formatUsd(item.unit_price_usd * item.qty)}</td>
+              <td className="num hidden text-fg-3 @xl:table-cell">{formatUsd(item.unit_price_usd)}</td>
+              <td className="num text-[15px] font-semibold text-fg">{formatUsd(item.unit_price_usd * item.qty)}</td>
               <td className="text-right">
-                <button type="button" className="btn btn-ghost btn-sm btn-icon h-8 min-h-8 w-8" aria-label={`Remove ${item.name}`} onClick={() => onRemove(item.product_id)}>
+                <button type="button" className="btn btn-ghost btn-sm btn-icon h-8 min-h-8 w-8 hover:text-danger" aria-label={`Remove ${item.name}`} onClick={() => onRemove(item.product_id)}>
                   <Icon name="close" className="h-4 w-4" />
                 </button>
               </td>

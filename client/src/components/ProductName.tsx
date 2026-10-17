@@ -6,15 +6,15 @@ export function ProductName({ name, inline = false, className = "" }: { name: st
   if (inline) {
     return (
       <span className={className} title={name}>
-        <span className="font-medium text-ink">{title}</span>
-        {form ? <span className="text-ink-3"> · {form}</span> : null}
+        <span className="font-medium text-fg">{title}</span>
+        {form ? <span className="text-fg-3"> · {form}</span> : null}
       </span>
     );
   }
   return (
     <span className={`block min-w-0 ${className}`.trim()} title={name}>
-      <span className="block truncate font-medium text-ink">{title}</span>
-      {form ? <span className="block truncate text-xs text-ink-3">{form}</span> : null}
+      <span className="block truncate font-medium text-fg">{title}</span>
+      {form ? <span className="block truncate text-xs text-fg-3">{form}</span> : null}
     </span>
   );
 }

@@ -36,6 +36,14 @@ const PATHS = {
   barcode: "M4 5v14M7.5 5v14M10 5v14M13.5 5v14M16 5v14M20 5v14",
   refresh: "M20 11a8 8 0 0 0-14.6-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5L20 16M20 20v-4h-4",
   download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M4 19h16",
+  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4",
+  moon: "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5",
+  monitor: "M3 4h18v12H3zM8 20h8M12 16v4",
+  edit: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
+  chevronLeft: "M14.5 6l-6 6 6 6",
+  sidebar: "M4 4h16v16H4zM9 4v16",
+  history: "M4 12a8 8 0 1 0 2.3-5.6L4 8.7M4 4v4.7h4.7M12 8v4l2.8 1.8",
+  layers: "M12 3 3 8l9 5 9-5zM3 13l9 5 9-5",
 } as const;
 
 export type IconName = keyof typeof PATHS;
