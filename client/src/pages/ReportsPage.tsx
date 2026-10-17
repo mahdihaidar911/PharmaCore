@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "../components/icons";
 import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
 import { ProductName } from "../components/ProductName";
+import { RevenueChart } from "../components/RevenueChart";
 import { Alert, EmptyState, FigureRow, Spinner, StatCard, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -48,11 +49,28 @@ function ExportButton({ name, headers, rows }: { name: string; headers: string[]
   );
 }
 
-function Question({ id, title, count, action, children, className = "" }: { id: string; title: string; count?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+function Question({
+  id,
+  title,
+  count,
+  action,
+  children,
+  className = "",
+  bare = false,
+}: {
+  id: string;
+  title: string;
+  count?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  /** For content that is already a framed strip (figure rows): no card around it. */
+  bare?: boolean;
+}) {
   return (
-    <section aria-labelledby={id} className={`break-inside-avoid ${className}`.trim()}>
+    <section aria-labelledby={id} className={`break-inside-avoid ${bare ? "" : "sheet px-4 pt-3 pb-2"} ${className}`.trim()}>
       <SectionHead id={id} title={title} count={count} action={action} />
-      {children}
+      <div className="mt-2">{children}</div>
     </section>
   );
 }
@@ -61,8 +79,8 @@ function Question({ id, title, count, action, children, className = "" }: { id: 
 function Bar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.max(1.5, (value / max) * 100) : 0;
   return (
-    <span className="block h-2 w-full bg-surface-2" aria-hidden>
-      <span className="block h-2 bg-accent" style={{ width: `${pct}%` }} />
+    <span className="meter meter-ok h-1.5" aria-hidden>
+      <span style={{ width: `${pct}%` }} />
     </span>
   );
 }
@@ -105,7 +123,6 @@ export default function ReportsPage() {
   }, [from, to, showSales, showProfit, can]);
 
   const days = data?.summary?.period.days ?? Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1);
-  const maxDaily = Math.max(0, ...(data?.daily?.days.map((d) => d.net_revenue_usd) ?? [0]));
   const methodTotal = data?.summary?.by_payment_method.reduce((s, m) => s + m.net_revenue_usd, 0) ?? 0;
 
   return (
@@ -137,10 +154,10 @@ export default function ReportsPage() {
       <ScrollBox className="min-h-0 flex-1">
         {loading && !data ? <Spinner className="p-4" /> : null}
         {data ? (
-          <div className={`space-y-8 pb-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
+          <div className={`space-y-5 pb-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
             {data.summary ? (
-              <Question id="r-sold" title="How much did we sell?">
-                <FigureRow className="mt-3">
+              <Question id="r-sold" title="How much did we sell?" bare>
+                <FigureRow>
                   <StatCard label="Net revenue" value={formatUsd(data.summary.net_revenue_usd)} hint={formatLbp(data.summary.net_revenue_lbp)} />
                   <StatCard label="Sales" value={data.summary.sale_count} hint={`Average ${formatUsd(data.summary.average_sale_usd)} per sale`} />
                   <StatCard label="Units sold" value={data.summary.units_sold} hint={`${data.summary.distinct_products_sold} different products`} />
@@ -156,7 +173,7 @@ export default function ReportsPage() {
               <Alert tone="info">Your role sees stock reports only. Sales and revenue figures are for pharmacists and owners.</Alert>
             )}
 
-            <div className="grid gap-x-8 gap-y-8 xl:grid-cols-2">
+            <div className="grid gap-5 xl:grid-cols-2">
               {data.summary ? (
                 <Question id="r-method" title="How did customers pay?">
                   {data.summary.by_payment_method.length === 0 ? (
@@ -195,32 +212,12 @@ export default function ReportsPage() {
                 <Question
                   id="r-daily"
                   title="How did each day go?"
+                  className="xl:order-first xl:col-span-2"
                   action={<ExportButton name={`daily-${from}-${to}.csv`} headers={["Date", "Sales", "Revenue USD"]} rows={data.daily.days.map((d) => [d.date, d.sale_count, d.net_revenue_usd])} />}
                 >
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th className="!pl-0">Day</th>
-                        <th className="num">Sales</th>
-                        <th className="w-2/5">
-                          <span className="sr-only">Revenue bar</span>
-                        </th>
-                        <th className="num !pr-0">Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.daily.days.map((d) => (
-                        <tr key={d.date}>
-                          <td className="code !pl-0 whitespace-nowrap">
-                            {new Date(`${d.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short" })} {d.date.slice(5)}
-                          </td>
-                          <td className={`num ${d.sale_count ? "" : "text-fg-4"}`}>{d.sale_count}</td>
-                          <td>{d.net_revenue_usd > 0 ? <Bar value={d.net_revenue_usd} max={maxDaily} /> : null}</td>
-                          <td className={`num !pr-0 ${d.net_revenue_usd ? "font-medium" : "text-fg-4"}`}>{formatUsd(d.net_revenue_usd)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="pb-2">
+                    <RevenueChart days={data.daily.days} today={localToday()} />
+                  </div>
                 </Question>
               ) : null}
 
@@ -228,7 +225,7 @@ export default function ReportsPage() {
                 <Question
                   id="r-fast"
                   title="What sells fastest?"
-                  className="xl:col-span-2"
+                  className="xl:order-1 xl:col-span-2"
                   action={
                     <ExportButton
                       name={`top-products-${from}-${to}.csv`}
@@ -289,8 +286,8 @@ export default function ReportsPage() {
               ) : null}
 
               {data.profit ? (
-                <Question id="r-profit" title="What did we earn?" count="owner only">
-                  <FigureRow className="mt-3 xl:grid-cols-3">
+                <Question id="r-profit" title="What did we earn?" count="owner only" bare className="xl:order-1 xl:col-span-2">
+                  <FigureRow columns={3}>
                     <StatCard
                       label="Gross profit"
                       value={formatUsd(data.profit.gross_profit_usd)}
@@ -348,6 +345,7 @@ export default function ReportsPage() {
                 <>
                   <Question
                     id="r-low"
+                    className="xl:order-2"
                     title="What should be reordered?"
                     count={data.stock.lowStockTotal}
                     action={<ExportButton name="low-stock.csv" headers={["Product", "Qty", "Min"]} rows={data.stock.lowStock.map((p) => [p.name, p.total_qty, p.min_stock])} />}
@@ -379,6 +377,7 @@ export default function ReportsPage() {
                   </Question>
                   <Question
                     id="r-expiry"
+                    className="xl:order-2"
                     title="What is expiring?"
                     count={data.stock.expiredTotal + data.stock.nearExpiryTotal}
                     action={

@@ -86,9 +86,9 @@ export function StatCard({
 }
 
 /** An instrument strip: StatCards share one surface, separated by hairlines. */
-export function FigureRow({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function FigureRow({ children, className = "", columns = 4 }: { children: ReactNode; className?: string; columns?: 3 | 4 }) {
   return (
-    <div className={`grid gap-px overflow-hidden rounded-md border border-line bg-line shadow-raised sm:grid-cols-2 xl:grid-cols-4 ${className}`.trim()}>
+    <div className={`grid gap-px overflow-hidden rounded-md border border-line bg-line shadow-raised ${columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-4"} ${className}`.trim()}>
       {children}
     </div>
   );

@@ -63,7 +63,7 @@ function MophPreview({
           </>
         ) : null}
       </p>
-      <FigureRow className="xl:grid-cols-3">
+      <FigureRow columns={3}>
         {isCatalog ? <StatCard label="New products" value={check.newProducts.toLocaleString()} /> : null}
         <StatCard label={isCatalog ? "Updates" : "Price changes"} value={check.priceChanges.toLocaleString()} tone={check.priceChanges > 0 ? "warning" : "neutral"} />
         <StatCard label="Unchanged" value={check.unchanged.toLocaleString()} />

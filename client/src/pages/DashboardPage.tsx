@@ -3,68 +3,69 @@ import { Link } from "react-router-dom";
 import { Icon } from "../components/icons";
 import { PageShell, ScrollBox, SectionHead } from "../components/PageShell";
 import { ProductName } from "../components/ProductName";
+import { RevenueChart } from "../components/RevenueChart";
 import { Alert, EmptyState, Spinner, Status } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
-import { api, formatLbp, formatUsd, type DashboardReport } from "../lib/api";
+import { api, formatLbp, formatUsd, localToday, type DailyRevenueReport, type DashboardReport } from "../lib/api";
 import { daysUntil, expiryStatus } from "../lib/expiry";
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
-function Strong({ tone, children }: { tone?: "danger" | "caution"; children: ReactNode }) {
-  const color = tone === "danger" ? "text-danger" : tone === "caution" ? "text-caution" : "text-fg";
-  return <strong className={`font-semibold ${color}`}>{children}</strong>;
+function Line({ tone, children }: { tone: "ok" | "caution" | "danger"; children: ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5 py-2 text-dense text-fg-2">
+      <Status tone={tone} className="mt-px shrink-0">
+        <span className="sr-only">{tone === "ok" ? "OK" : tone === "caution" ? "Attention" : "Action needed"}</span>
+      </Status>
+      <span className="min-w-0">{children}</span>
+    </li>
+  );
 }
 
-/** One-paragraph answer to "how is today going?" built only from the report figures. */
-function Standfirst({ report }: { report: DashboardReport }) {
+/** "How is today going?" — the day's takings and the three shelf checks, built only from the report figures. */
+function TodayPanel({ report }: { report: DashboardReport }) {
   const s = report.salesToday;
-  const outOfStock = report.outOfStockTotal;
   const low = report.lowStockTotal;
+  const out = report.outOfStockTotal;
   return (
-    <p className="max-w-4xl font-serif text-xl leading-relaxed text-fg-2">
+    <section aria-label="Today at a glance" className="sheet flex flex-col px-4 py-3.5">
       {s ? (
-        s.sale_count === 0 ? (
-          <>No sales yet today. </>
-        ) : (
-          <>
-            <Strong>{plural(s.sale_count, "sale", "sales")}</Strong> so far, <Strong>{formatUsd(s.total_usd)}</Strong> after discounts
-            {s.total_lbp > 0 ? <> ({formatLbp(s.total_lbp)})</> : null}.{" "}
-          </>
-        )
+        <div className="border-b border-line pb-3.5">
+          <p className="kicker">Sales today</p>
+          <p className="mt-1 text-figure leading-none font-semibold tracking-[-0.025em] text-fg">{formatUsd(s.total_usd)}</p>
+          <p className="mt-1.5 text-dense text-fg-3">
+            {s.sale_count === 0 ? "No sales yet" : plural(s.sale_count, "sale", "sales")}
+            {s.total_lbp > 0 ? <span className="code"> · {formatLbp(s.total_lbp)}</span> : null}
+            <span> · after discounts</span>
+          </p>
+        </div>
       ) : null}
-      {low === 0 ? (
-        <>Every product is above its minimum stock. </>
-      ) : (
-        <>
-          <Strong tone="caution">{plural(low, "product is", "products are")}</Strong> at or below minimum
-          {outOfStock > 0 ? (
-            <>
-              , <Strong tone="danger">{plural(outOfStock, "of them", "of them")} out of stock</Strong>
-            </>
-          ) : null}
-          .{" "}
-        </>
-      )}
-      {report.expiredTotal > 0 ? (
-        <>
-          <Strong tone="danger">{plural(report.expiredTotal, "batch has", "batches have")} expired</Strong> and must be removed from the shelf
-          {report.nearExpiryTotal > 0 ? (
-            <>
-              ; <Strong tone="caution">{report.nearExpiryTotal}</Strong> more expire within 90 days.
-            </>
-          ) : (
-            "."
-          )}
-        </>
-      ) : report.nearExpiryTotal > 0 ? (
-        <>
-          <Strong tone="caution">{plural(report.nearExpiryTotal, "batch expires", "batches expire")}</Strong> within 90 days.
-        </>
-      ) : (
-        <>No batch expires in the next 90 days.</>
-      )}
-    </p>
+      <ul className="divide-y divide-line">
+        {low === 0 ? (
+          <Line tone="ok">Every product is above its minimum stock.</Line>
+        ) : (
+          <Line tone={out > 0 ? "danger" : "caution"}>
+            <strong className="font-semibold text-fg">{plural(low, "product", "products")}</strong> at or below minimum
+            {out > 0 ? <>, {out} out of stock</> : null}.
+          </Line>
+        )}
+        {report.expiredTotal > 0 ? (
+          <Line tone="danger">
+            <strong className="font-semibold text-fg">{plural(report.expiredTotal, "batch", "batches")} expired</strong> — remove from the shelf.
+          </Line>
+        ) : (
+          <Line tone="ok">No expired stock on the shelf.</Line>
+        )}
+        {report.nearExpiryTotal > 0 ? (
+          <Line tone="caution">
+            <strong className="font-semibold text-fg">{plural(report.nearExpiryTotal, "batch expires", "batches expire")}</strong> within 90 days.
+          </Line>
+        ) : (
+          <Line tone="ok">Nothing expires in the next 90 days.</Line>
+        )}
+      </ul>
+    </section>
   );
 }
 
@@ -72,15 +73,23 @@ export default function DashboardPage() {
   const { settings } = useSettings();
   const { can } = useAuth();
   const [report, setReport] = useState<DashboardReport | null>(null);
+  const [daily, setDaily] = useState<DailyRevenueReport | null>(null);
   const [error, setError] = useState("");
   const pharmacyName = settings?.name?.trim() || "PharmaCore Pharmacy";
+  const showTrend = can("reports.sales");
 
   useEffect(() => {
     api
       .getDashboardReport()
       .then(setReport)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load today's summary"));
-  }, []);
+    if (showTrend) {
+      api
+        .getDailyRevenue(localToday(-6), localToday())
+        .then(setDaily)
+        .catch(() => setDaily(null));
+    }
+  }, [showTrend]);
 
   const expiryAlerts = report ? [...report.expired, ...report.nearExpiry].slice(0, 10) : [];
   const dateLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -110,11 +119,21 @@ export default function DashboardPage() {
       <ScrollBox className="min-h-0 flex-1">
         {!report && !error ? <Spinner className="p-4" /> : null}
         {report ? (
-          <div className="space-y-7 pb-4">
-            <Standfirst report={report} />
+          <div className="space-y-5 pb-4">
+            <div className={`grid gap-5 ${showTrend ? "lg:grid-cols-[minmax(0,5fr)_minmax(0,8fr)]" : ""}`}>
+              <TodayPanel report={report} />
+              {showTrend ? (
+                <section aria-labelledby="q-week" className="sheet px-4 pt-3 pb-3">
+                  <SectionHead id="q-week" title="Last 7 days" />
+                  <div className="mt-2">
+                    {daily ? <RevenueChart days={daily.days} today={localToday()} /> : <Spinner className="py-6" />}
+                  </div>
+                </section>
+              ) : null}
+            </div>
 
-            <div className="grid gap-x-8 gap-y-7 lg:grid-cols-2">
-              <section aria-labelledby="q-expiry">
+            <div className="grid gap-5 lg:grid-cols-2">
+              <section aria-labelledby="q-expiry" className="sheet px-4 pt-3 pb-2">
                 <SectionHead
                   id="q-expiry"
                   title="What must come off the shelf soon?"
@@ -160,7 +179,7 @@ export default function DashboardPage() {
                 )}
               </section>
 
-              <section aria-labelledby="q-reorder">
+              <section aria-labelledby="q-reorder" className="sheet px-4 pt-3 pb-2">
                 <SectionHead
                   id="q-reorder"
                   title="What should be reordered?"
@@ -206,7 +225,7 @@ export default function DashboardPage() {
               </section>
 
               {report.topProducts ? (
-                <section aria-labelledby="q-sold">
+                <section aria-labelledby="q-sold" className="sheet px-4 pt-3 pb-2">
                   <SectionHead id="q-sold" title="What sold today?" />
                   {report.topProducts.length === 0 ? (
                     <EmptyState title="No sales yet today." />
@@ -236,7 +255,7 @@ export default function DashboardPage() {
               ) : null}
 
               {report.salesByCashier ? (
-                <section aria-labelledby="q-who">
+                <section aria-labelledby="q-who" className="sheet px-4 pt-3 pb-2">
                   <SectionHead id="q-who" title="Who has been selling?" />
                   {report.salesByCashier.length === 0 ? (
                     <EmptyState title="No sales yet today." />
