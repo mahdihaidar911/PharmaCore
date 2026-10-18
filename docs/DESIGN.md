@@ -143,11 +143,15 @@ Business rules, APIs and the database are unchanged. Client-only changes:
   presses could record the same cart twice. `handleCheckout` now holds a synchronous in-flight flag.
 - `api.getProduct(id)` wraps the existing `GET /api/products/:id` for the inspector.
 - Success messages that used to sit in page alerts are toasts (receive, adjust, product save, sale completed).
+- A "Skip to content" link is the first Tab stop, so keyboard users don't walk the whole rail on every page.
+- A grid without a column template gets one shrinkable column (`index.css`, base layer); otherwise a wide table
+  stretched the implicit column and pushed narrow pages sideways.
 
 ## 7. Known gaps
 
 - Receipts and the shift report are separate 80 mm print templates and were not restyled.
-- No phone layout for the POS; verified at 1440, 1280 and 1024 px wide.
+- Phones are a fallback, not a target: at 390 px nothing overflows and a keyboard sale still works, but the cart
+  and checkout stack and the cashier scrolls to pay. Layouts were checked at 1440, 1280, 1024, 768 and 390 px.
 - No sales-by-tendered-currency report; low-stock figures still count expired units until they are written off.
 - Product list stock is a number, not a meter: the catalogue has no per-product target to measure against.
 

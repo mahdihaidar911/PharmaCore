@@ -154,7 +154,7 @@ export default function DashboardPage() {
                       <tr>
                         <th>Product</th>
                         <th>Units</th>
-                        <th>Expiry</th>
+                        <th className="max-sm:hidden">Expiry</th>
                         <th>State</th>
                       </tr>
                     </thead>
@@ -167,7 +167,7 @@ export default function DashboardPage() {
                               <ProductName name={b.product_name} />
                             </td>
                             <td className="num text-fg-2">{b.qty} u</td>
-                            <td className="num code text-fg-2">{b.expiry_date}</td>
+                            <td className="num code text-fg-2 max-sm:hidden">{b.expiry_date}</td>
                             <td className="!pr-0 text-right">
                               <Status tone={st.tone}>{st.label}</Status>
                             </td>

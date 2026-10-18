@@ -223,6 +223,10 @@ POS on a 1024 px tablet while searching; out-of-stock products are shown as not 
 
 ![POS tablet](docs/screenshots/pos-tablet.png)
 
+On a 390 px phone the cart and checkout stack; nothing scrolls sideways
+
+![POS phone](docs/screenshots/pos-phone.png)
+
 Today: takings, the three shelf checks and the last 7 days of revenue
 
 ![Today](docs/screenshots/today.png)

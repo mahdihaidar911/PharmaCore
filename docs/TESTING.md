@@ -54,6 +54,9 @@ Run `npm run dev` → http://localhost:5173. Create a cashier and a pharmacist u
 - [ ] Products: owner/pharmacist can untick Active; the product disappears from POS and reappears with "Include inactive"
 - [ ] Receive stock: past expiry dates are refused; expiry within 90 days shows a short-dated warning
 - [ ] Tablet width (< 1024 px): sidebar becomes a drawer opened from the top bar
+- [ ] Phone width (390 px): no page scrolls sideways; wide tables scroll inside their own card; on the POS the
+      cart comes first and the checkout follows below it
+- [ ] First Tab on any page shows "Skip to content"; Enter moves focus to the page, the next Tab lands in it
 
 ### Theme
 

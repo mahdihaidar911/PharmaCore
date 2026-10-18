@@ -318,6 +318,14 @@ body {
   }
 }
 
+/* An implicit grid column sizes to its widest table and pushes the page sideways on narrow screens.
+   Kept in the base layer so every grid-cols-* utility still wins. */
+@layer base {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @layer components {
   /* ---------- Buttons: 36px; lg 48px; 44px minimum on touch screens ---------- */
   .btn {

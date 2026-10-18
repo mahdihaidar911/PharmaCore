@@ -70,7 +70,7 @@ function Question({
   return (
     <section aria-labelledby={id} className={`break-inside-avoid ${bare ? "" : "sheet px-4 pt-3 pb-2"} ${className}`.trim()}>
       <SectionHead id={id} title={title} count={count} action={action} />
-      <div className="mt-2">{children}</div>
+      <div className={`mt-2 ${bare ? "" : "overflow-x-auto"}`}>{children}</div>
     </section>
   );
 }

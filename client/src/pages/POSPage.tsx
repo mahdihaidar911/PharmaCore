@@ -578,7 +578,7 @@ export default function POSPage() {
       }`}
     >
       <h1 className="sr-only">Point of sale</h1>
-      <div className="grid min-h-0 flex-1 gap-5 overflow-auto lg:grid-cols-[minmax(0,1fr)_350px] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid min-h-0 flex-1 gap-5 overflow-x-hidden overflow-y-auto max-lg:auto-rows-max lg:grid-cols-[minmax(0,1fr)_350px] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_400px]">
         <section className="flex min-h-0 flex-col gap-2.5" aria-label="Current sale">
           <div className="relative shrink-0">
             <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

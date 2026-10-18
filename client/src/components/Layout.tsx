@@ -278,6 +278,16 @@ export default function Layout() {
 
   return (
     <div className="flex h-full overflow-hidden bg-frame">
+      <a
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("main")?.focus();
+        }}
+        className="btn btn-primary btn-sm fixed top-2 left-2 z-[60] -translate-y-16 focus:translate-y-0"
+      >
+        Skip to content
+      </a>
       <div className="hidden h-full shrink-0 lg:block">{renderRail(rail.expanded, rail.toggle)}</div>
 
       {navOpen ? (
@@ -342,7 +352,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl border-t border-l border-frame-line bg-canvas px-4 pt-4 pb-4 text-fg lg:px-6 lg:pt-5 max-lg:rounded-none max-lg:border-l-0">
+        <main id="main" tabIndex={-1} className="flex min-h-0 outline-none min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl border-t border-l border-frame-line bg-canvas px-4 pt-4 pb-4 text-fg lg:px-6 lg:pt-5 max-lg:rounded-none max-lg:border-l-0">
           <Outlet />
         </main>
       </div>

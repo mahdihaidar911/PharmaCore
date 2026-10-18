@@ -52,7 +52,7 @@ export function Panel({ children, className = "", padding = true }: PanelProps) 
 export function SectionHead({ title, count, action, id }: { title: string; count?: ReactNode; action?: ReactNode; id?: string }) {
   return (
     <div className="section-head">
-      <h2 id={id} className="flex shrink-0 items-baseline gap-2 text-dense font-semibold text-fg">
+      <h2 id={id} className="flex min-w-0 items-baseline gap-2 text-dense font-semibold text-fg">
         {title}
         {count !== undefined ? <span className="font-mono text-xs font-medium text-fg-3">{count}</span> : null}
       </h2>
