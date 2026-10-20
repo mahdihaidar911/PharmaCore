@@ -5,7 +5,7 @@ workstation, fully offline**, in the browser: fast checkout with USD/LBP, batch 
 reports, backups, role-based access, and an optional AI business assistant that only works with real
 PharmaCore data.
 
-> Status: **pilot**. Suitable for a supervised pilot in one pharmacy. See [Known limitations](#known-limitations).
+> Status: **in development** (pilot). Suitable for a supervised pilot in one pharmacy. Not released. See [Known limitations](#known-limitations).
 
 ## Features
 
